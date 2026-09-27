@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice &amp; Expense Management — Prototype</title>
+<style>
+:root{
+  --accent:#4f46e5; --accent-dark:#4338ca; --accent-soft:#eef2ff;
+  --bg:#f6f7f9; --card:#ffffff; --border:#e5e7eb; --border-soft:#f0f1f4;
+  --text:#111827; --muted:#6b7280; --muted-2:#9ca3af;
+  --green-bg:#dcfce7; --green-tx:#15803d;
+  --amber-bg:#fef3c7; --amber-tx:#92400e;
+  --blue-bg:#dbeafe; --blue-tx:#1d4ed8;
+  --red-bg:#fee2e2; --red-tx:#b91c1c;
+  --gray-bg:#f3f4f6; --gray-tx:#4b5563;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.app{display:flex;min-height:100vh}
+/* Sidebar */
+.sidebar{width:232px;flex:0 0 232px;background:var(--card);border-right:1px solid var(--border);
+  padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brand{padding:4px 10px 18px;border-bottom:1px solid var(--border-soft);margin-bottom:14px}
+.brand .t1{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.brand .t2{font-size:11.5px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;color:var(--muted);
+  font-weight:500;font-size:13.5px;cursor:pointer;border:0;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item svg{flex:0 0 18px}
+.nav-item:hover{background:#f3f4f6;color:var(--text)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);font-weight:650}
+.side-foot{margin-top:auto;padding:12px 10px 2px;font-size:11px;color:var(--muted-2);border-top:1px solid var(--border-soft)}
+/* Main + topbar */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 28px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar h1{font-size:16.5px;font-weight:700;margin:0;letter-spacing:-.01em}
+.topbar .sub{font-size:12px;color:var(--muted);margin-top:1px}
+.rolebox{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted)}
+.rolebox select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;
+  font-weight:600;color:var(--text);background:#fff;cursor:pointer;font-family:inherit}
+.content{padding:26px 30px;max-width:1220px;width:100%;margin:0 auto}
+/* Cards / grids */
+.grid-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:20px}
+.grid-2eq{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card h3{margin:0 0 4px;font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.card .hint{font-size:12.5px;color:var(--muted);margin:0 0 14px}
+.kpi .lbl{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.kpi .val{font-size:29px;font-weight:750;letter-spacing:-.02em;line-height:1.1}
+.kpi .sub2{font-size:12px;color:var(--muted);margin-top:5px}
+.kpi.danger .val{color:var(--red-tx)}
+/* Tables */
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:650;padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:11px 12px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr.clickable{cursor:pointer}
+.tbl tbody tr.clickable:hover{background:#fafbfc}
+.tbl td.num,.tbl th.num{text-align:right;white-space:nowrap}
+.tbl .vendor{font-weight:600}
+/* Chips */
+.chip{display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:650;white-space:nowrap}
+.chip.captured{background:var(--gray-bg);color:var(--gray-tx)}
+.chip.assigned{background:var(--amber-bg);color:var(--amber-tx)}
+.chip.verified{background:var(--blue-bg);color:var(--blue-tx)}
+.chip.approved{background:var(--green-bg);color:var(--green-tx)}
+.chip.rejected{background:var(--red-bg);color:var(--red-tx)}
+.chip.draft{background:var(--gray-bg);color:var(--gray-tx)}
+.chip.pending{background:var(--amber-bg);color:var(--amber-tx)}
+.chip.billed{background:var(--accent-soft);color:var(--accent)}
+.chip.ok{background:var(--green-bg);color:var(--green-tx)}
+.chip.warn{background:var(--amber-bg);color:var(--amber-tx)}
+.chip.bad{background:var(--red-bg);color:var(--red-tx)}
+.chip.muted{background:var(--gray-bg);color:var(--gray-tx)}
+.chip.delayed{background:var(--red-bg);color:var(--red-tx)}
+.chip.active{background:var(--green-bg);color:var(--green-tx)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;font-weight:650;
+  font-size:13.5px;border:1px solid transparent;cursor:pointer;font-family:inherit;transition:background .12s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-dark)}
+.btn-ghost{background:#fff;border-color:var(--border);color:var(--text)}
+.btn-ghost:hover{background:#f9fafb}
+.btn-danger{background:#fef2f2;color:var(--red-tx);border-color:#fecaca}
+.btn-danger:hover{background:#fee2e2}
+.btn-sm{padding:6px 12px;font-size:12.5px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.toolbar h2{margin:0;font-size:19px;font-weight:750;letter-spacing:-.015em}
+.toolbar .actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.search{padding:9px 13px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;width:230px;font-family:inherit}
+.search:focus,.rolebox select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.fchips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.fchip{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12.5px;
+  font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.fchip.active{background:var(--text);color:#fff;border-color:var(--text)}
+/* Bars */
+.bar{height:8px;background:#eef0f3;border-radius:99px;overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--accent);border-radius:99px}
+.stackbar{display:flex;height:14px;border-radius:99px;overflow:hidden;background:#eef0f3;margin:6px 0 12px}
+.stackbar>div{height:100%}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend .dot{display:inline-block;width:9px;height:9px;border-radius:99px;margin-right:6px}
+.hbar-row{display:grid;grid-template-columns:130px 1fr 110px;gap:12px;align-items:center;margin:11px 0;font-size:13px}
+.hbar-row .amt{text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+.vbars{display:flex;align-items:flex-end;gap:34px;height:190px;padding-top:10px}
+.vbar{flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.vbar .col{width:64px;background:var(--accent);border-radius:8px 8px 4px 4px;min-height:6px}
+.vbar .mlbl{font-size:12.5px;color:var(--muted);margin-top:8px;font-weight:600}
+.vbar .vval{font-size:12.5px;font-weight:700;margin-bottom:7px}
+/* Activity */
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--border-soft);font-size:13px}
+.feed li:last-child{border-bottom:0}
+.feed .fdot{flex:0 0 8px;width:8px;height:8px;border-radius:99px;background:var(--accent);margin-top:6px}
+.feed .ftime{color:var(--muted-2);font-size:11.5px;margin-top:2px}
+.attn{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-soft);
+  font-size:13px;cursor:pointer}
+.attn:last-child{border-bottom:0}
+.attn:hover .alink{color:var(--accent-dark)}
+.attn .alink{font-weight:650}
+.attn .meta{font-size:12px;color:var(--muted)}
+.empty{padding:34px;text-align:center;color:var(--muted);font-size:13.5px}
+/* Drawer */
+.overlay{position:fixed;inset:0;background:rgba(17,24,39,.42);z-index:40;animation:fade .15s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.drawer{position:fixed;top:0;right:0;width:460px;max-width:94vw;height:100vh;background:#fff;z-index:50;
+  box-shadow:-12px 0 40px rgba(0,0,0,.12);display:flex;flex-direction:column;animation:slidein .18s ease}
+@keyframes slidein{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
+.drawer-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.drawer-head h3{margin:0;font-size:16px;font-weight:750}
+.drawer-body{padding:20px 22px;overflow-y:auto;flex:1}
+.drawer-foot{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px}
+.iconbtn{border:1px solid var(--border);background:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
+.iconbtn:hover{background:#f9fafb;color:var(--text)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:7px 12px;font-size:13.5px;margin:14px 0}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600}
+.matchbox{border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin:14px 0;font-size:13px;background:#fbfbfc}
+.sec-t{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:20px 0 8px}
+textarea.rmk{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13.5px;
+  font-family:inherit;min-height:74px;resize:vertical}
+textarea.rmk:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.rmk-item{border-left:3px solid var(--border);padding:6px 0 6px 12px;margin:8px 0;font-size:13px}
+.rmk-item .who{font-weight:650;font-size:12.5px}
+.rmk-item .when{color:var(--muted-2);font-size:11.5px}
+/* Modal */
+.modal-wrap{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#fff;border-radius:14px;width:680px;max-width:96vw;max-height:92vh;overflow-y:auto;
+  box-shadow:0 24px 70px rgba(0,0,0,.18);animation:fade .15s ease}
+.modal-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{margin:0;font-size:16px;font-weight:750}
+.modal-body{padding:22px 24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:650;color:var(--muted);margin-bottom:6px}
+.field input,.field select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;
+  font-size:13.5px;font-family:inherit;background:#fff;color:var(--text)}
+.field input:focus,.field select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.po-items td{padding:7px 8px}
+/* Toast */
+#toast-root{position:fixed;bottom:22px;right:22px;z-index:100;display:flex;flex-direction:column;gap:9px}
+.toast{background:#111827;color:#fff;padding:12px 17px;border-radius:10px;font-size:13.5px;font-weight:550;
+  box-shadow:0 10px 30px rgba(0,0,0,.22);animation:slidein .18s ease;max-width:340px}
+.toast.ok{border-left:4px solid #22c55e}
+.toast.warn{border-left:4px solid #f59e0b}
+/* Events */
+.ev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.ev-card{cursor:pointer;transition:box-shadow .12s,transform .12s}
+.ev-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.07);transform:translateY(-1px)}
+.ev-card h3{font-size:15px;margin:0 0 2px}
+.ev-meta{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.backlink{background:none;border:0;color:var(--accent);font-weight:650;font-size:13.5px;cursor:pointer;
+  padding:0;margin-bottom:14px;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.perm-note{font-size:12.5px;color:var(--muted);background:#f9fafb;border:1px dashed var(--border);
+  border-radius:8px;padding:10px 14px;margin-top:14px}
+@media(max-width:1000px){.grid-kpi{grid-template-columns:1fr 1fr}.grid-2,.grid-2eq{grid-template-columns:1fr}.ev-grid{grid-template-columns:1fr}}
+.rolesel{padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;background:#fff;color:var(--text);cursor:pointer;font-family:inherit;font-weight:600}
+.rolesel:hover{border-color:#9ca3af}
+.hamb{display:none;border:1px solid var(--border);background:#fff;border-radius:8px;width:38px;height:38px;
+  cursor:pointer;align-items:center;justify-content:center;color:var(--text);flex:0 0 38px;font-family:inherit}
+.hamb:hover{background:#f9fafb}
+.nav-backdrop{display:none}
+@media(max-width:760px){
+  .content{padding:16px}
+  .topbar{padding:11px 14px;gap:10px}
+  .topbar h1{font-size:15px}
+  .hamb{display:inline-flex}
+  .rolebox span{display:none}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;height:100vh;z-index:60;width:264px;max-width:82vw;
+    transform:translateX(-105%);transition:transform .22s ease;box-shadow:12px 0 40px rgba(0,0,0,.14)}
+  body.nav-open .sidebar{transform:none}
+  body.nav-open .nav-backdrop{display:block;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:55}
+  .card{overflow-x:auto}
+  table.tbl{min-width:620px}
+  .kpi .val{font-size:24px}
+  .toolbar h2{font-size:17px}
+  .drawer{width:100vw;max-width:100vw}
+  .frow{grid-template-columns:1fr}
+  .search{width:100%}
+  .vbars{gap:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="t1">Invoice &amp; Expense</div><div class="t2">Management System</div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">Demo prototype &middot; fictional data<br>SRS v1.1 &middot; Sep 2026</div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamb" onclick="toggleNav()" aria-label="Open menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+        <div><h1 id="page-title">Dashboard</h1><div class="sub">Client demo prototype</div></div>
+      </div>
+      <div class="rolebox">
+        <span>Acting as</span>
+        <select id="role-sel" onchange="setRole(this.value)" title="Switch role to preview role-based access (FR-09)">
+          <option>Admin</option><option>Manager</option><option>Finance</option><option>Viewer</option>
+        </select>
+      </div>
+    </header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+<div class="nav-backdrop" onclick="closeNav()"></div>
+<div id="drawer-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<script>
+"use strict";
+/* ============ Constants & helpers ============ */
+const TODAY = new Date("2026-09-23T00:00:00");
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmt = n => "\u20B9" + Math.round(n).toLocaleString("en-IN");
+const fmtDate = s => { const d = new Date(s+"T00:00:00"); return d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear(); };
+const daysSince = s => Math.floor((TODAY - new Date(s+"T00:00:00"))/86400000);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PENDING = ["captured","assigned","verified"];
+const isDelayed = inv => PENDING.includes(inv.status) && daysSince(inv.date) > 7;
+const PERMS = {
+  Admin:   {review:true, approvePO:true, createPO:true,  label:"Full access"},
+  Manager: {review:true, approvePO:true, createPO:false, label:"Can approve invoices & POs"},
+  Finance: {review:true, approvePO:false,createPO:true,  label:"Can verify invoices & create POs"},
+  Viewer:  {review:false,approvePO:false,createPO:false, label:"Read-only"}
+};
+const ICONS = {
+  dash:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  inv:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>',
+  po:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a2 2 0 0 1 6 0M9 11h6M9 15h4"/></svg>',
+  ev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
+  rep:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>',
+  users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.6a3.5 3.5 0 0 1 0 6.9M18.6 14.4c1.9.9 3.1 2.7 3.1 5.6"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  x:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  dl:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg>',
+  back:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>'
+};
+/* ============ Mock data ============ */
+const EVENTS = [
+  {id:"evt1", name:"Leadership Training \u2013 Goa", dates:"12\u201314 Sep 2026", loc:"Goa", budget:900000},
+  {id:"evt2", name:"Annual Sales Meet \u2013 Mumbai", dates:"25\u201326 Sep 2026", loc:"Mumbai", budget:600000},
+  {id:"evt3", name:"Partner Summit \u2013 Delhi", dates:"5\u20136 Sep 2026", loc:"Delhi", budget:750000}
+];
+const eventName = id => (EVENTS.find(e=>e.id===id)||{}).name || "\u2014";
+const VENDORS = ["Sharma Travels","Grand Palm Hotel","Skyline Airways","VisaFast Services","Spice Route Catering","CityCab Rentals","Metro Stationery"];
+const TEAM = ["Priya Nair","Rahul Verma","Amit Shah"];
+const ASSIGN_RULE = {Travel:"Priya Nair", Flight:"Priya Nair", Hotel:"Amit Shah", Visa:"Amit Shah", Food:"Rahul Verma", Other:"Rahul Verma"};
+
+const state = {
+  role:"Admin", screen:"dashboard", invFilter:"all", invSearch:"",
+  userRoleFilter:"all",
+  selInvoice:null, selEvent:null, selPO:null, poSeq:207, invSeq:1014,
+  invoices:[
+    {id:"INV-1001",vendor:"Sharma Travels",no:"ST/26/1042",date:"2026-09-21",amount:48500,eventId:"evt1",cat:"Travel",assignedTo:"Priya Nair",status:"assigned",poId:"PO-201",remarks:[],hist:["Captured from email \u2014 21 Sep 2026","Auto-assigned to Priya Nair \u2014 21 Sep 2026"]},
+    {id:"INV-1002",vendor:"Grand Palm Hotel",no:"GPH/8821",date:"2026-09-20",amount:234000,eventId:"evt1",cat:"Hotel",assignedTo:"Amit Shah",status:"verified",poId:"PO-202",remarks:[],hist:["Captured from email \u2014 20 Sep 2026","Auto-assigned to Amit Shah \u2014 20 Sep 2026","Verified by Rahul Verma \u2014 21 Sep 2026"]},
+    {id:"INV-1003",vendor:"Skyline Airways",no:"SA/55301",date:"2026-09-19",amount:186750,eventId:"evt2",cat:"Flight",assignedTo:"Priya Nair",status:"assigned",poId:null,remarks:[],hist:["Captured from email \u2014 19 Sep 2026","Auto-assigned to Priya Nair \u2014 19 Sep 2026"]},
+    {id:"INV-1004",vendor:"VisaFast Services",no:"VF/3091",date:"2026-09-18",amount:62400,eventId:"evt3",cat:"Visa",assignedTo:"Amit Shah",status:"verified",poId:"PO-204",remarks:[],hist:["Captured from email \u2014 18 Sep 2026","Auto-assigned to Amit Shah \u2014 18 Sep 2026","Verified by Priya Nair \u2014 20 Sep 2026"]},
+    {id:"INV-1005",vendor:"Spice Route Catering",no:"SRC/7712",date:"2026-09-17",amount:96500,eventId:"evt2",cat:"Food",assignedTo:"Rahul Verma",status:"captured",poId:null,remarks:[],hist:["Captured from email \u2014 17 Sep 2026"]},
+    {id:"INV-1006",vendor:"Sharma Travels",no:"ST/26/1038",date:"2026-09-10",amount:37200,eventId:"evt3",cat:"Travel",assignedTo:"Priya Nair",status:"assigned",poId:null,remarks:[],hist:["Captured from email \u2014 10 Sep 2026","Auto-assigned to Priya Nair \u2014 10 Sep 2026"]},
+    {id:"INV-1007",vendor:"Grand Palm Hotel",no:"GPH/8790",date:"2026-09-08",amount:158000,eventId:"evt1",cat:"Hotel",assignedTo:"Amit Shah",status:"verified",poId:"PO-202",remarks:[],hist:["Captured from email \u2014 8 Sep 2026","Auto-assigned to Amit Shah \u2014 8 Sep 2026","Verified by Rahul Verma \u2014 12 Sep 2026"]},
+    {id:"INV-1008",vendor:"CityCab Rentals",no:"CC/4450",date:"2026-09-22",amount:18400,eventId:"evt2",cat:"Travel",assignedTo:"Rahul Verma",status:"captured",poId:null,remarks:[],hist:["Captured from email \u2014 22 Sep 2026"]},
+    {id:"INV-1009",vendor:"Skyline Airways",no:"SA/55240",date:"2026-09-05",amount:212300,eventId:"evt1",cat:"Flight",assignedTo:"Priya Nair",status:"approved",poId:"PO-203",remarks:[{by:"Manager",text:"Matched with PO-203, approved for payment.",when:"9 Sep 2026"}],hist:["Captured from email \u2014 5 Sep 2026","Auto-assigned to Priya Nair \u2014 5 Sep 2026","Verified by Priya Nair \u2014 7 Sep 2026","Approved \u2014 9 Sep 2026"]},
+    {id:"INV-1010",vendor:"VisaFast Services",no:"VF/3012",date:"2026-09-12",amount:41800,eventId:"evt3",cat:"Visa",assignedTo:"Amit Shah",status:"approved",poId:"PO-204",remarks:[{by:"Manager",text:"Visa fees verified against PO-204.",when:"14 Sep 2026"}],hist:["Captured from email \u2014 12 Sep 2026","Auto-assigned to Amit Shah \u2014 12 Sep 2026","Verified by Amit Shah \u2014 13 Sep 2026","Approved \u2014 14 Sep 2026"]},
+    {id:"INV-1011",vendor:"Metro Stationery",no:"MS/2091",date:"2026-09-21",amount:12650,eventId:"evt2",cat:"Other",assignedTo:"Rahul Verma",status:"assigned",poId:null,remarks:[],hist:["Captured from email \u2014 21 Sep 2026","Auto-assigned to Rahul Verma \u2014 21 Sep 2026"]},
+    {id:"INV-1012",vendor:"Spice Route Catering",no:"SRC/7690",date:"2026-09-09",amount:88400,eventId:"evt3",cat:"Food",assignedTo:"Priya Nair",status:"verified",poId:null,remarks:[],hist:["Captured from email \u2014 9 Sep 2026","Auto-assigned to Priya Nair \u2014 9 Sep 2026","Verified by Priya Nair \u2014 15 Sep 2026"]},
+    {id:"INV-1013",vendor:"Grand Palm Hotel",no:"GPH/8755",date:"2026-09-03",amount:196000,eventId:"evt3",cat:"Hotel",assignedTo:"Amit Shah",status:"rejected",poId:null,remarks:[{by:"Manager",text:"Duplicate of GPH/8612 received in August. Rejected.",when:"6 Sep 2026"}],hist:["Captured from email \u2014 3 Sep 2026","Auto-assigned to Amit Shah \u2014 3 Sep 2026","Flagged as possible duplicate \u2014 5 Sep 2026","Rejected \u2014 6 Sep 2026"]},
+    {id:"INV-0901",vendor:"Skyline Airways",no:"SA/54890",date:"2026-08-24",amount:198400,eventId:"evt3",cat:"Flight",assignedTo:"Priya Nair",status:"approved",poId:null,remarks:[],hist:["Captured from email \u2014 24 Aug 2026","Approved \u2014 28 Aug 2026"]},
+    {id:"INV-0902",vendor:"Grand Palm Hotel",no:"GPH/8612",date:"2026-08-20",amount:142000,eventId:"evt3",cat:"Hotel",assignedTo:"Amit Shah",status:"approved",poId:null,remarks:[],hist:["Captured from email \u2014 20 Aug 2026","Approved \u2014 25 Aug 2026"]},
+    {id:"INV-0903",vendor:"Spice Route Catering",no:"SRC/7520",date:"2026-08-18",amount:76300,eventId:"evt3",cat:"Food",assignedTo:"Rahul Verma",status:"approved",poId:null,remarks:[],hist:["Captured from email \u2014 18 Aug 2026","Approved \u2014 24 Aug 2026"]}
+  ],
+  pos:[
+    {id:"PO-201",vendor:"Sharma Travels",date:"2026-09-18",amount:48500,eventId:"evt1",status:"approved",items:[{d:"Tempo traveller hire \u2014 3 days",q:1,r:48500}],hist:["Created \u2014 18 Sep 2026","Approved by Manager \u2014 19 Sep 2026"]},
+    {id:"PO-202",vendor:"Grand Palm Hotel",date:"2026-09-15",amount:410000,eventId:"evt1",status:"approved",items:[{d:"Room nights",q:40,r:9500},{d:"Conference hall \u2014 2 days",q:2,r:15000}],hist:["Created \u2014 15 Sep 2026","Approved by Manager \u2014 16 Sep 2026"]},
+    {id:"PO-203",vendor:"Skyline Airways",date:"2026-09-02",amount:212300,eventId:"evt1",status:"billed",items:[{d:"Group flight booking \u2014 42 seats",q:42,r:5055}],hist:["Created \u2014 2 Sep 2026","Approved by Manager \u2014 3 Sep 2026","Fully billed \u2014 9 Sep 2026"]},
+    {id:"PO-204",vendor:"VisaFast Services",date:"2026-09-10",amount:104200,eventId:"evt3",status:"approved",items:[{d:"Business visa processing \u2014 14 pax",q:14,r:7443}],hist:["Created \u2014 10 Sep 2026","Approved by Manager \u2014 11 Sep 2026"]},
+    {id:"PO-205",vendor:"Spice Route Catering",date:"2026-09-21",amount:120000,eventId:"evt2",status:"pending",items:[{d:"Gala dinner \u2014 200 pax",q:200,r:600}],hist:["Created \u2014 21 Sep 2026","Sent for manager approval"]},
+    {id:"PO-206",vendor:"CityCab Rentals",date:"2026-09-22",amount:25000,eventId:"evt2",status:"draft",items:[{d:"Airport transfers \u2014 25 trips",q:25,r:1000}],hist:["Draft created \u2014 22 Sep 2026"]}
+  ],
+  activity:[
+    {t:"Email capture: INV-1008 received from CityCab Rentals",w:"22 Sep 2026"},
+    {t:"INV-1002 verified by Rahul Verma",w:"21 Sep 2026"},
+    {t:"PO-205 created and sent for manager approval",w:"21 Sep 2026"},
+    {t:"INV-1004 verified by Priya Nair",w:"20 Sep 2026"},
+    {t:"INV-1010 approved \u2014 ready for payment",w:"14 Sep 2026"}
+  ],
+  emailQueue:[
+    {vendor:"Sharma Travels",no:"ST/26/1045",amount:52400,cat:"Travel",eventId:"evt2"},
+    {vendor:"Metro Stationery",no:"MS/2104",amount:8930,cat:"Other",eventId:"evt2"},
+    {vendor:"VisaFast Services",no:"VF/3120",amount:35600,cat:"Visa",eventId:"evt3"}
+  ],
+  /* FR-01/NFR-06: inbox scale — ~1,000-1,200 mails/day during working hours */
+  mailStats:{scanned:1184,captured:9,dupes:2},
+  /* FR-10: user onboarding with maker-checker control */
+  users:[
+    {name:"System Administrator",email:"admin@company.com",username:"admin",password:null,role:"Admin",status:"active",createdBy:"System",loc:"Mumbai",remarks:[],
+     hist:["Account created by System \u2014 1 Sep 2026"]},
+    {name:"Priya Nair",email:"priya.nair@company.com",username:"priya.nair",password:null,role:"Manager",status:"active",createdBy:"System Administrator",loc:"Mumbai",remarks:[],
+     hist:["Account created by System Administrator \u2014 2 Sep 2026","Approved by Admin \u2014 credentials issued \u2014 2 Sep 2026"]},
+    {name:"Arjun Mehta",email:"arjun.mehta@company.com",username:"arjun.mehta",password:null,role:"Manager",status:"active",createdBy:"System Administrator",loc:"Bengaluru",remarks:[],
+     hist:["Requested by Priya Nair \u2014 10 Sep 2026","Approved by Admin \u2014 credentials issued \u2014 11 Sep 2026"]},
+    {name:"Amit Shah",email:"amit.shah@company.com",username:"amit.shah",password:null,role:"Finance",status:"active",createdBy:"System Administrator",loc:"Mumbai",remarks:[],
+     hist:["Requested by Priya Nair \u2014 5 Sep 2026","Approved by Admin \u2014 credentials issued \u2014 6 Sep 2026"]},
+    {name:"Rohit Gupta",email:"rohit.gupta@company.com",username:null,password:null,role:"Finance",status:"pending",createdBy:"Priya Nair (Manager)",loc:"Pune",remarks:[],
+     hist:["Requested by Priya Nair \u2014 22 Sep 2026"]}
+  ]
+};
+const inv = id => state.invoices.find(i=>i.id===id);
+const po = id => state.pos.find(p=>p.id===id);
+function poMatch(p){
+  const bills = state.invoices.filter(i=>i.poId===p.id && i.status!=="rejected");
+  if(!bills.length) return {label:"No bills yet", cls:"muted"};
+  const sum = bills.reduce((a,i)=>a+i.amount,0);
+  if(sum===p.amount) return {label:"Matched", cls:"ok", detail:bills.length+" bill(s) \u00B7 "+fmt(sum)};
+  if(sum<p.amount) return {label:"Partially billed", cls:"warn", detail:bills.length+" bill(s) \u00B7 "+fmt(sum)+" of "+fmt(p.amount)};
+  return {label:"Over billed", cls:"bad", detail:bills.length+" bill(s) \u00B7 "+fmt(sum)+" of "+fmt(p.amount)};
+}
+function logAct(t){ state.activity.unshift({t:t,w:"Just now"}); state.activity=state.activity.slice(0,12); }
+/* __MORE_JS2__ */
+/* ============ Shell rendering ============ */
+const NAV = [
+  {id:"dashboard", t:"Dashboard", icon:"dash"},
+  {id:"invoices", t:"Invoices", icon:"inv"},
+  {id:"pos", t:"Purchase Orders", icon:"po"},
+  {id:"events", t:"Events", icon:"ev"},
+  {id:"reports", t:"Reports", icon:"rep"},
+  {id:"users", t:"Users", icon:"users", roles:["Admin","Manager"]}
+];
+const TITLES = {dashboard:"Dashboard", invoices:"Invoices", pos:"Purchase Orders", events:"Events", eventDetail:"Event Detail", reports:"Reports", users:"Users"};
+function renderNav(){
+  const items = NAV.filter(n=>!n.roles||n.roles.includes(state.role));
+  document.getElementById("nav").innerHTML = items.map(n=>
+    '<button class="nav-item'+(state.screen===n.id||(n.id==="events"&&state.screen==="eventDetail")?" active":"")+'" onclick="nav(\''+n.id+'\')">'+ICONS[n.icon]+'<span>'+n.t+'</span></button>'
+  ).join("");
+}
+function nav(s){ state.screen=s; state.selEvent=null; closeNav(); render(); }
+function toggleNav(){ document.body.classList.toggle("nav-open"); }
+function closeNav(){ var b=document.body; if(b&&b.classList) b.classList.remove("nav-open"); }
+function setRole(r){
+  state.role=r;
+  if(state.screen==="users"&&!(r==="Admin"||r==="Manager")) state.screen="dashboard";
+  toast("Role switched to "+r+" \u2014 "+PERMS[r].label,"ok"); render();
+}
+function render(){
+  renderNav();
+  document.getElementById("role-sel").value = state.role;
+  document.getElementById("page-title").textContent = TITLES[state.screen]||"Dashboard";
+  const c = document.getElementById("content");
+  if(state.screen==="dashboard") c.innerHTML = vDashboard();
+  else if(state.screen==="invoices") c.innerHTML = vInvoices();
+  else if(state.screen==="pos") c.innerHTML = vPOs();
+  else if(state.screen==="events") c.innerHTML = vEvents();
+  else if(state.screen==="eventDetail") c.innerHTML = vEventDetail();
+  else if(state.screen==="reports") c.innerHTML = vReports();
+  else if(state.screen==="users") c.innerHTML = vUsers();
+}
+function chip(st){ return '<span class="chip '+st+'">'+st.charAt(0).toUpperCase()+st.slice(1)+'</span>'; }
+/* ============ Dashboard ============ */
+function kpis(){
+  const all = state.invoices, pend = all.filter(i=>PENDING.includes(i.status)),
+        appr = all.filter(i=>i.status==="approved"), del = all.filter(isDelayed);
+  return {
+    total:all.length, totalVal:all.reduce((a,i)=>a+i.amount,0),
+    pend:pend.length, pendVal:pend.reduce((a,i)=>a+i.amount,0),
+    appr:appr.length, apprVal:appr.reduce((a,i)=>a+i.amount,0),
+    del:del.length, delVal:del.reduce((a,i)=>a+i.amount,0), delList:del
+  };
+}
+function vTeam(){
+  const rows = state.users.filter(u=>u.role!=="Admin").map(u=>
+    '<tr><td><div class="vendor">'+esc(u.name)+'</div><div style="font-size:11.5px;color:var(--muted)">'+esc(u.username||"pending credentials")+'</div></td>'+
+    '<td>'+esc(u.role)+'</td><td style="font-size:12.5px">'+esc(u.loc||"\u2014")+'</td>'+
+    '<td><span class="chip '+u.status+'">'+u.status.charAt(0).toUpperCase()+u.status.slice(1)+'</span></td></tr>'
+  ).join("");
+  return '<div class="card" style="margin-bottom:20px"><h3>My Team</h3><p class="hint">People and locations reporting in your scope \u2014 only a Manager can propose new users</p>'+
+    '<table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Location</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function vDashboard(){
+  const k = kpis();
+  const stages = [["captured","Captured","#9ca3af"],["assigned","Assigned","#f59e0b"],["verified","Verified","#3b82f6"]];
+  const seg = stages.map(s=>{
+    const n = state.invoices.filter(i=>i.status===s[0]).length;
+    const pct = k.pend? (n/k.pend*100):0;
+    return '<div style="width:'+pct+'%;background:'+s[2]+'" title="'+s[1]+": "+n+'"></div>';
+  }).join("");
+  const legend = stages.map(s=>{
+    const list = state.invoices.filter(i=>i.status===s[0]);
+    return '<span><span class="dot" style="background:'+s[2]+'"></span>'+s[1]+': <b>'+list.length+'</b> ('+fmt(list.reduce((a,i)=>a+i.amount,0))+')</span>';
+  }).join("");
+  const feed = state.activity.map(a=>'<li><span class="fdot"></span><div><div>'+esc(a.t)+'</div><div class="ftime">'+esc(a.w)+'</div></div></li>').join("");
+  const attn = k.delList.length ? k.delList.map(i=>
+    '<div class="attn" onclick="openInvoice(\''+i.id+'\')"><div><div class="alink">'+i.id+' \u00B7 '+esc(i.vendor)+'</div><div class="meta">'+esc(i.assignedTo)+' \u00B7 '+daysSince(i.date)+' days delayed</div></div><div style="font-weight:700">'+fmt(i.amount)+'</div></div>'
+  ).join("") : '<div class="empty">No delayed items. All clear.</div>';
+  const m = state.mailStats, mSkip = m.scanned - m.captured - m.dupes;
+  const mailCard = '<div class="card" style="margin-bottom:20px"><h3>Email inbox \u2014 today</h3>'+
+    '<p class="hint">Designated invoice mailbox \u00B7 ~1,000\u20131,200 mails/day during working hours \u00B7 polled every few minutes \u00B7 invoice candidates pre-filtered before extraction</p>'+
+    '<div class="grid-kpi" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">'+
+    '<div class="kpi"><div class="lbl">Mails scanned</div><div class="val">'+m.scanned.toLocaleString("en-IN")+'</div><div class="sub2">fetched from inbox</div></div>'+
+    '<div class="kpi"><div class="lbl">Invoices captured</div><div class="val">'+m.captured+'</div><div class="sub2">candidates extracted</div></div>'+
+    '<div class="kpi"><div class="lbl">Skipped</div><div class="val">'+mSkip.toLocaleString("en-IN")+'</div><div class="sub2">non-invoice + '+m.dupes+' duplicates</div></div>'+
+    '</div></div>';
+  return ''+
+  '<div class="grid-kpi">'+
+    '<div class="card kpi"><div class="lbl">Invoices Received</div><div class="val">'+k.total+'</div><div class="sub2">'+fmt(k.totalVal)+' total value</div></div>'+
+    '<div class="card kpi"><div class="lbl">Pending Approval</div><div class="val">'+k.pend+'</div><div class="sub2">'+fmt(k.pendVal)+' awaiting action</div></div>'+
+    '<div class="card kpi"><div class="lbl">Approved</div><div class="val">'+k.appr+'</div><div class="sub2">'+fmt(k.apprVal)+' ready for payment</div></div>'+
+    '<div class="card kpi danger"><div class="lbl">Delayed / Overdue</div><div class="val">'+k.del+'</div><div class="sub2">pending over 7 days \u00B7 '+fmt(k.delVal)+'</div></div>'+
+  '</div>'+
+  mailCard+
+  (state.role==="Manager" ? vTeam() : '')+
+  '<div class="grid-2">'+
+    '<div class="card"><h3>Pending by stage</h3><p class="hint">Where each invoice sits in the approval pipeline</p>'+
+      '<div class="stackbar">'+seg+'</div><div class="legend">'+legend+'</div>'+
+      '<div class="perm-note" style="margin-top:16px">Pipeline: email captured \u2192 auto-assigned \u2192 verified \u2192 approved. Click any invoice in the Invoices tab to act on it.</div>'+
+    '</div>'+
+    '<div class="card"><h3>Needs attention</h3><p class="hint">Delayed items with the person responsible</p>'+attn+'</div>'+
+  '</div>'+
+  '<div class="card"><h3>Recent activity</h3><p class="hint">Latest actions across the system</p><ul class="feed">'+feed+'</ul></div>';
+}
+/* ============ Invoices ============ */
+function filteredInvoices(){
+  let list = state.invoices.slice().sort((a,b)=> b.date.localeCompare(a.date));
+  if(state.invFilter==="pending") list = list.filter(i=>PENDING.includes(i.status));
+  else if(state.invFilter==="approved") list = list.filter(i=>i.status==="approved");
+  else if(state.invFilter==="rejected") list = list.filter(i=>i.status==="rejected");
+  else if(state.invFilter==="delayed") list = list.filter(isDelayed);
+  const q = state.invSearch.trim().toLowerCase();
+  if(q) list = list.filter(i=>(i.vendor+" "+i.no+" "+i.assignedTo+" "+i.id).toLowerCase().includes(q));
+  return list;
+}
+function vInvoices(){
+  const can = PERMS[state.role];
+  const chips = [["all","All"],["pending","Pending"],["approved","Approved"],["rejected","Rejected"],["delayed","Delayed"]]
+    .map(f=>'<button class="fchip'+(state.invFilter===f[0]?" active":"")+'" onclick="invFilter(\''+f[0]+'\')">'+f[1]+'</button>').join("");
+  const rows = filteredInvoices().map(i=>{
+    const d = isDelayed(i) ? ' <span class="chip delayed">'+daysSince(i.date)+'d late</span>' : '';
+    return '<tr class="clickable" onclick="openInvoice(\''+i.id+'\')">'+
+      '<td class="vendor">'+esc(i.vendor)+'</td><td>'+esc(i.no)+'<div style="font-size:11.5px;color:var(--muted)">'+i.id+'</div></td>'+
+      '<td>'+fmtDate(i.date)+'</td><td class="num" style="font-weight:650">'+fmt(i.amount)+'</td>'+
+      '<td style="font-size:12.5px">'+esc(eventName(i.eventId))+'</td><td style="font-size:12.5px">'+esc(i.assignedTo)+'</td>'+
+      '<td>'+chip(i.status)+d+'</td></tr>';
+  }).join("");
+  return ''+
+  '<div class="toolbar"><h2>Invoices</h2><div class="actions">'+
+    '<input class="search" placeholder="Search vendor, no, assignee\u2026" value="'+esc(state.invSearch)+'" oninput="invSearch(this.value)">'+
+    ((can.review||state.role==="Admin") && state.role!=="Viewer" ? '<button class="btn btn-ghost" onclick="simulateEmail()">'+ICONS.plus+' Simulate email fetch</button>' : '')+
+  '</div></div>'+
+  '<div class="card"><div class="fchips">'+chips+'</div>'+
+  (rows? '<table class="tbl"><thead><tr><th>Vendor</th><th>Invoice no</th><th>Date</th><th class="num">Amount</th><th>Event</th><th>Assigned to</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+       : '<div class="empty">No invoices match this filter.</div>')+
+  '</div>';
+}
+function invFilter(f){ state.invFilter=f; render(); }
+function invSearch(q){ state.invSearch=q;
+  const tb = document.querySelector("#content tbody"); if(!tb) return;
+  const rows = filteredInvoices().map(i=>{
+    const d = isDelayed(i) ? ' <span class="chip delayed">'+daysSince(i.date)+'d late</span>' : '';
+    return '<tr class="clickable" onclick="openInvoice(\''+i.id+'\')">'+
+      '<td class="vendor">'+esc(i.vendor)+'</td><td>'+esc(i.no)+'<div style="font-size:11.5px;color:var(--muted)">'+i.id+'</div></td>'+
+      '<td>'+fmtDate(i.date)+'</td><td class="num" style="font-weight:650">'+fmt(i.amount)+'</td>'+
+      '<td style="font-size:12.5px">'+esc(eventName(i.eventId))+'</td><td style="font-size:12.5px">'+esc(i.assignedTo)+'</td>'+
+      '<td>'+chip(i.status)+d+'</td></tr>';
+  }).join("");
+  tb.innerHTML = rows || '<tr><td colspan="7"><div class="empty">No invoices match.</div></td></tr>';
+}
+function openInvoice(id){
+  state.selInvoice=id; const i = inv(id); if(!i) return;
+  const can = PERMS[state.role].review;
+  const m = i.poId ? po(i.poId) : null;
+  const mInfo = m ? poMatch(m) : null;
+  const poBox = m
+    ? '<div class="matchbox"><div style="font-weight:700;margin-bottom:4px">Linked PO: '+m.id+'</div>'+
+      '<div>PO value: <b>'+fmt(m.amount)+'</b> &nbsp;\u00B7&nbsp; Billed: <b>'+fmt(state.invoices.filter(x=>x.poId===m.id&&x.status!=="rejected").reduce((a,x)=>a+x.amount,0))+'</b></div>'+
+      '<div style="margin-top:6px"><span class="chip '+mInfo.cls+'">'+mInfo.label+'</span>'+(mInfo.detail?' <span style="color:var(--muted);font-size:12px">'+mInfo.detail+'</span>':"")+'</div></div>'
+    : '<div class="matchbox"><div style="font-weight:700;margin-bottom:4px">No purchase order linked</div><div style="color:var(--muted)">This bill arrived without a PO. It can still be verified and approved.</div></div>';
+  let actions = "";
+  if(can){
+    if(i.status==="captured"||i.status==="assigned")
+      actions = '<button class="btn btn-primary" onclick="verifyInvoice(\''+i.id+'\')">Verify details</button>';
+    else if(i.status==="verified")
+      actions = '<button class="btn btn-primary" onclick="approveInvoice(\''+i.id+'\')">Approve</button>'+
+                '<button class="btn btn-danger" onclick="rejectInvoice(\''+i.id+'\')">Reject</button>';
+    else if(i.status==="rejected")
+      actions = '<button class="btn btn-primary" onclick="sendBackForCorrection(\''+i.id+'\')">Send back to '+esc(i.assignedTo)+' for correction</button>';
+    else actions = '<div style="font-size:12.5px;color:var(--muted)">This invoice is '+i.status+'. No further action needed.</div>';
+  } else {
+    actions = '<div class="perm-note" style="margin:0">Your role ('+state.role+') cannot verify or approve invoices.</div>';
+  }
+  const hist = i.hist.map(h=>'<div class="rmk-item" style="border-color:var(--accent-soft)"><div>'+esc(h)+'</div></div>').join("");
+  const rmks = i.remarks.map(r=>'<div class="rmk-item"><div class="who">'+esc(r.by)+' <span class="when">\u00B7 '+esc(r.when)+'</span></div><div>'+esc(r.text)+'</div></div>').join("");
+  openDrawer(
+    '<div class="drawer-head"><div><h3>'+i.id+'</h3><div style="margin-top:6px;display:flex;gap:8px;align-items:center">'+chip(i.status)+(isDelayed(i)?' <span class="chip delayed">Delayed '+daysSince(i.date)+' days</span>':"")+'</div></div>'+
+    '<button class="iconbtn" onclick="closeDrawer()">'+ICONS.x+'</button></div>'+
+    '<div class="drawer-body">'+
+      '<div class="sec-t" style="margin-top:0">Extracted from email</div>'+
+      '<div class="kv">'+
+        '<div class="k">Vendor</div><div class="v">'+esc(i.vendor)+'</div>'+
+        '<div class="k">Bill no</div><div class="v">'+esc(i.no)+'</div>'+
+        '<div class="k">Bill date</div><div class="v">'+fmtDate(i.date)+'</div>'+
+        '<div class="k">Amount</div><div class="v">'+fmt(i.amount)+'</div>'+
+        '<div class="k">Category</div><div class="v">'+esc(i.cat)+'</div>'+
+        '<div class="k">Event</div><div class="v">'+esc(eventName(i.eventId))+'</div>'+
+        '<div class="k">Assigned to</div><div class="v">'+esc(i.assignedTo)+'</div>'+
+      '</div>'+poBox+
+      (rmks? '<div class="sec-t">Remarks</div>'+rmks : "")+
+      '<div class="sec-t">History</div>'+hist+
+      (can&&(i.status==="verified") ? '<div class="sec-t">Add remark</div><textarea class="rmk" id="rmk" placeholder="Optional remark for approval, or required for rejection\u2026"></textarea>' : "")+
+    '</div>'+
+    '<div class="drawer-foot">'+actions+'</div>'
+  );
+}
+function verifyInvoice(id){
+  const i=inv(id); i.status="verified";
+  i.hist.push("Verified by "+state.role+" \u2014 23 Sep 2026");
+  logAct(i.id+" verified by "+state.role);
+  toast(i.id+" verified \u2014 ready for approval","ok"); openInvoice(id); render();
+}
+function approveInvoice(id){
+  const i=inv(id); const r=(document.getElementById("rmk")||{}).value||"";
+  i.status="approved";
+  if(r.trim()) i.remarks.push({by:state.role,text:r.trim(),when:"23 Sep 2026"});
+  i.hist.push("Approved by "+state.role+" \u2014 23 Sep 2026");
+  logAct(i.id+" ("+i.vendor+") approved \u2014 "+fmt(i.amount));
+  checkPOBilling(i);
+  toast(i.id+" approved \u2014 ready for payment","ok"); openInvoice(id); render();
+}
+function rejectInvoice(id){
+  const i=inv(id); const r=((document.getElementById("rmk")||{}).value||"").trim();
+  if(!r){ toast("Please add a remark explaining the rejection","warn"); return; }
+  i.status="rejected"; i.remarks.push({by:state.role,text:r,when:"23 Sep 2026"});
+  i.hist.push("Rejected by "+state.role+" \u2014 "+r+" \u2014 23 Sep 2026");
+  logAct(i.id+" ("+i.vendor+") rejected \u2014 "+r);
+  toast(i.id+" rejected","warn"); openInvoice(id); render();
+}
+function sendBackForCorrection(id){
+  const i=inv(id);
+  i.status="assigned";
+  i.hist.push("Sent back to "+i.assignedTo+" for correction by "+state.role+" \u2014 23 Sep 2026");
+  logAct(i.id+" sent back to "+i.assignedTo+" for correction");
+  toast(i.id+" sent back to "+i.assignedTo+" for correction","ok"); openInvoice(id); render();
+}
+function simulateEmail(){
+  const batch = 35+Math.floor(Math.random()*45); /* mails seen in this polling cycle */
+  state.mailStats.scanned += batch;
+  const q = state.emailQueue.shift();
+  if(!q){
+    logAct("Email poll: "+batch+" mails scanned \u2014 no new invoices");
+    toast("Inbox polled: "+batch+" mails scanned, no new invoices","warn");
+    render(); return;
+  }
+  state.mailStats.captured += 1;
+  const id = "INV-"+(state.invSeq++);
+  const ni = {id:id, vendor:q.vendor, no:q.no, date:"2026-09-23", amount:q.amount, eventId:q.eventId,
+    cat:q.cat, assignedTo:ASSIGN_RULE[q.cat]||"Rahul Verma", status:"captured", poId:null, remarks:[],
+    hist:["Captured from email \u2014 23 Sep 2026","Auto-assigned to "+(ASSIGN_RULE[q.cat]||"Rahul Verma")+" \u2014 23 Sep 2026"]};
+  ni.status = "assigned";
+  state.invoices.unshift(ni);
+  logAct("Email poll: "+batch+" mails scanned \u2014 captured "+id+" from "+q.vendor);
+  toast("Inbox polled: "+batch+" mails scanned \u2014 captured "+id+" ("+(batch-1)+" skipped)","ok");
+  render(); openInvoice(id);
+}
+/* __MORE_JS3__ */
+/* ============ Drawer / Modal / Toast helpers ============ */
+function openDrawer(html){
+  document.getElementById("drawer-root").innerHTML =
+    '<div class="overlay" onclick="closeDrawer()"></div><aside class="drawer">'+html+'</aside>';
+}
+function closeDrawer(){ document.getElementById("drawer-root").innerHTML=""; state.selInvoice=null; state.selPO=null; }
+function openModal(html){
+  document.getElementById("modal-root").innerHTML =
+    '<div class="overlay" onclick="closeModal()"></div><div class="modal-wrap" style="pointer-events:none"><div class="modal" style="pointer-events:auto">'+html+'</div></div>';
+}
+function closeModal(){ document.getElementById("modal-root").innerHTML=""; }
+function toast(msg,type){
+  const r=document.getElementById("toast-root"); const d=document.createElement("div");
+  d.className="toast "+(type||""); d.textContent=msg; r.appendChild(d);
+  setTimeout(()=>{ d.style.transition="opacity .3s"; d.style.opacity="0"; setTimeout(()=>d.remove(),320); },2600);
+}
+/* ============ Purchase Orders ============ */
+function vPOs(){
+  const can = PERMS[state.role];
+  const rows = state.pos.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(p=>{
+    const m = poMatch(p);
+    return '<tr class="clickable" onclick="openPO(\''+p.id+'\')">'+
+      '<td style="font-weight:650">'+p.id+'</td><td class="vendor">'+esc(p.vendor)+'</td>'+
+      '<td>'+fmtDate(p.date)+'</td><td style="font-size:12.5px">'+esc(eventName(p.eventId))+'</td>'+
+      '<td class="num" style="font-weight:650">'+fmt(p.amount)+'</td>'+
+      '<td>'+chip(p.status)+'</td><td><span class="chip '+m.cls+'">'+m.label+'</span></td></tr>';
+  }).join("");
+  return ''+
+  '<div class="toolbar"><h2>Purchase Orders</h2><div class="actions">'+
+    (can.createPO ? '<button class="btn btn-primary" onclick="openPOModal()">'+ICONS.plus+' New PO</button>' : '')+
+  '</div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>PO no</th><th>Vendor</th><th>Date</th><th>Event</th><th class="num">Amount</th><th>Status</th><th>PO\u2013Bill match</th></tr></thead>'+
+  '<tbody>'+rows+'</tbody></table>'+
+  '<div class="perm-note">Lifecycle: Draft \u2192 Pending approval \u2192 Approved \u2192 Billed (automatic when bills fully match the PO value). Rejected POs return to Draft with remarks.</div></div>';
+}
+function openPO(id){
+  state.selPO=id; const p=po(id); if(!p) return;
+  p.remarks = p.remarks||[];
+  const can = PERMS[state.role];
+  const m = poMatch(p);
+  const bills = state.invoices.filter(i=>i.poId===p.id);
+  const items = p.items.map(it=>'<tr><td>'+esc(it.d)+'</td><td class="num">'+it.q+'</td><td class="num">'+fmt(it.r)+'</td><td class="num" style="font-weight:650">'+fmt(it.q*it.r)+'</td></tr>').join("");
+  const billRows = bills.length ? bills.map(i=>
+    '<div class="attn" onclick="openInvoice(\''+i.id+'\')"><div><div class="alink">'+i.id+' \u00B7 '+esc(i.no)+'</div><div class="meta">'+fmtDate(i.date)+'</div></div><div style="display:flex;gap:8px;align-items:center">'+chip(i.status)+'<b>'+fmt(i.amount)+'</b></div></div>'
+  ).join("") : '<div class="empty">No bills received against this PO yet.</div>';
+  const hist = p.hist.map(h=>'<div class="rmk-item" style="border-color:var(--accent-soft)"><div>'+esc(h)+'</div></div>').join("");
+  const rmks = p.remarks.map(r=>'<div class="rmk-item"><div class="who">'+esc(r.by)+' <span class="when">\u00B7 '+esc(r.when)+'</span></div><div>'+esc(r.text)+'</div></div>').join("");
+  let actions="";
+  if(p.status==="draft" && can.createPO)
+    actions='<button class="btn btn-primary" onclick="submitPOForApproval(\''+p.id+'\')">Submit for approval</button>';
+  else if(p.status==="pending" && can.approvePO)
+    actions='<button class="btn btn-primary" onclick="approvePO(\''+p.id+'\')">Approve PO</button>'+
+            '<button class="btn btn-danger" onclick="rejectPO(\''+p.id+'\')">Reject</button>';
+  else if(p.status==="approved")
+    actions='<div style="font-size:12.5px;color:var(--muted)">Approved and locked. It will move to <b>Billed</b> automatically once received bills fully match the PO value.</div>';
+  else if(p.status==="billed")
+    actions='<div style="font-size:12.5px;color:var(--muted)">Fully billed. No further action needed.</div>';
+  else
+    actions='<div class="perm-note" style="margin:0">Your role ('+state.role+') cannot act on this PO.</div>';
+  openDrawer(
+    '<div class="drawer-head"><div><h3>'+p.id+'</h3><div style="margin-top:6px;display:flex;gap:8px">'+chip(p.status)+'<span class="chip '+m.cls+'">'+m.label+'</span></div></div>'+
+    '<button class="iconbtn" onclick="closeDrawer()">'+ICONS.x+'</button></div>'+
+    '<div class="drawer-body">'+
+      '<div class="kv">'+
+        '<div class="k">Vendor</div><div class="v">'+esc(p.vendor)+'</div>'+
+        '<div class="k">PO date</div><div class="v">'+fmtDate(p.date)+'</div>'+
+        '<div class="k">Event</div><div class="v">'+esc(eventName(p.eventId))+'</div>'+
+        '<div class="k">PO value</div><div class="v">'+fmt(p.amount)+'</div>'+
+      '</div>'+
+      '<div class="sec-t">Line items</div>'+
+      '<table class="tbl"><thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead><tbody>'+items+'</tbody></table>'+
+      '<div class="sec-t">Linked bills ('+bills.length+')</div>'+billRows+
+      '<div class="matchbox"><div style="font-weight:700;margin-bottom:4px">PO\u2013Bill match</div><div><span class="chip '+m.cls+'">'+m.label+'</span>'+(m.detail?' <span style="color:var(--muted);font-size:12px">'+m.detail+'</span>':"")+'</div></div>'+
+      (rmks? '<div class="sec-t">Remarks</div>'+rmks : "")+
+      '<div class="sec-t">History</div>'+hist+
+      (p.status==="pending"&&can.approvePO ? '<div class="sec-t">Add remark</div><textarea class="rmk" id="po-rmk" placeholder="Required if rejecting\u2026"></textarea>' : "")+
+    '</div>'+
+    '<div class="drawer-foot">'+actions+'</div>'
+  );
+}
+function submitPOForApproval(id){
+  const p=po(id); p.status="pending"; p.hist.push("Submitted for manager approval \u2014 23 Sep 2026");
+  logAct(id+" submitted for manager approval"); toast(id+" sent for manager approval","ok");
+  openPO(id); render();
+}
+function approvePO(id){
+  const p=po(id); p.status="approved"; p.hist.push("Approved by "+state.role+" \u2014 23 Sep 2026");
+  logAct(id+" ("+p.vendor+") approved \u2014 "+fmt(p.amount)); toast(id+" approved and locked","ok");
+  openPO(id); render();
+}
+function rejectPO(id){
+  const p=po(id); const r=((document.getElementById("po-rmk")||{}).value||"").trim();
+  if(!r){ toast("Please add a remark explaining the rejection","warn"); return; }
+  p.status="draft"; p.remarks.push({by:state.role,text:r,when:"23 Sep 2026"});
+  p.hist.push("Rejected by "+state.role+" \u2014 sent back to draft \u2014 23 Sep 2026");
+  logAct(id+" rejected \u2014 sent back to draft"); toast(id+" sent back to draft with remarks","warn");
+  openPO(id); render();
+}
+/* ---- New PO modal ---- */
+let poDraftItems=[{d:"",q:1,r:0}];
+function openPOModal(){
+  poDraftItems=[{d:"",q:1,r:0}];
+  openModal(
+    '<div class="modal-head"><h3>New Purchase Order</h3><button class="iconbtn" onclick="closeModal()">'+ICONS.x+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="frow"><div class="field"><label>Vendor</label><select id="po-vendor">'+VENDORS.map(v=>'<option>'+v+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label>Event</label><select id="po-event">'+EVENTS.map(e=>'<option value="'+e.id+'">'+esc(e.name)+'</option>').join("")+'</select></div></div>'+
+      '<div class="field"><label>PO date</label><input type="date" id="po-date" value="2026-09-23"></div>'+
+      '<div class="field"><label>Line items</label>'+
+      '<table class="tbl po-items"><thead><tr><th>Description</th><th class="num" style="width:70px">Qty</th><th class="num" style="width:110px">Rate (\u20B9)</th><th style="width:40px"></th></tr></thead>'+
+      '<tbody id="po-items-body"></tbody></table>'+
+      '<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addPORow()">'+ICONS.plus+' Add item</button></div>'+
+      '<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:6px"><span style="color:var(--muted);font-size:13px">PO total</span><b id="po-total" style="font-size:19px">'+fmt(0)+'</b></div>'+
+    '</div>'+
+    '<div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn btn-ghost" onclick="submitPO(true)">Save as draft</button>'+
+    '<button class="btn btn-primary" onclick="submitPO(false)">Submit for approval</button></div>'
+  );
+  refreshPOItems();
+}
+function poRowHTML(it,i){
+  return '<tr><td><input data-i="'+i+'" data-f="d" value="'+esc(it.d)+'" placeholder="e.g. Gala dinner \u2014 200 pax" oninput="poItemChange(this)" style="width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit"></td>'+
+  '<td class="num"><input data-i="'+i+'" data-f="q" type="number" min="1" value="'+it.q+'" oninput="poItemChange(this)" style="width:64px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit"></td>'+
+  '<td class="num"><input data-i="'+i+'" data-f="r" type="number" min="0" value="'+it.r+'" oninput="poItemChange(this)" style="width:104px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit"></td>'+
+  '<td><button class="iconbtn" style="width:28px;height:28px" onclick="removePORow('+i+')" title="Remove">'+ICONS.x+'</button></td></tr>';
+}
+function refreshPOItems(){
+  document.getElementById("po-items-body").innerHTML = poDraftItems.map(poRowHTML).join("");
+  document.getElementById("po-total").textContent = fmt(poDraftTotal());
+}
+function poDraftTotal(){ return poDraftItems.reduce((a,it)=>a+(+it.q||0)*(+it.r||0),0); }
+function poItemChange(el){
+  const i=+el.dataset.i, f=el.dataset.f;
+  poDraftItems[i][f] = f==="d" ? el.value : (parseFloat(el.value)||0);
+  document.getElementById("po-total").textContent = fmt(poDraftTotal());
+}
+function addPORow(){ poDraftItems.push({d:"",q:1,r:0}); refreshPOItems(); }
+function removePORow(i){ if(poDraftItems.length>1){ poDraftItems.splice(i,1); refreshPOItems(); } else toast("A PO needs at least one line item","warn"); }
+function submitPO(asDraft){
+  const vendor=document.getElementById("po-vendor").value;
+  const eventId=document.getElementById("po-event").value;
+  const date=document.getElementById("po-date").value||"2026-09-23";
+  const items=poDraftItems.filter(it=>it.d.trim() && (+it.q)>0 && (+it.r)>0).map(it=>({d:it.d.trim(),q:+it.q,r:+it.r}));
+  if(!items.length){ toast("Add at least one line item with description, qty and rate","warn"); return; }
+  const total=items.reduce((a,it)=>a+it.q*it.r,0);
+  const id="PO-"+(state.poSeq++);
+  state.pos.push({id:id,vendor:vendor,date:date,amount:total,eventId:eventId,
+    status:asDraft?"draft":"pending",items:items,remarks:[],
+    hist:["Created \u2014 23 Sep 2026"].concat(asDraft?[]:["Sent for manager approval"])});
+  logAct(id+" ("+vendor+") "+(asDraft?"saved as draft":"created and sent for approval")+" \u2014 "+fmt(total));
+  closeModal(); toast(id+" "+(asDraft?"saved as draft":"submitted for approval")+" \u2014 "+fmt(total),"ok");
+  render(); openPO(id);
+}
+/* ============ Events ============ */
+function eventSpend(eid){ return state.invoices.filter(i=>i.eventId===eid&&i.status!=="rejected"); }
+function vEvents(){
+  const cards = EVENTS.map(e=>{
+    const bills=eventSpend(e.id), spent=bills.reduce((a,i)=>a+i.amount,0), pct=Math.min(100,Math.round(spent/e.budget*100));
+    const cats={}; bills.forEach(i=>cats[i.cat]=(cats[i.cat]||0)+i.amount);
+    const top=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    return '<div class="card ev-card" onclick="openEvent(\''+e.id+'\')"><h3>'+esc(e.name)+'</h3>'+
+      '<div class="ev-meta">'+esc(e.dates)+' \u00B7 '+esc(e.loc)+' \u00B7 '+bills.length+' bills</div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span style="color:var(--muted)">Spent</span><b>'+fmt(spent)+' <span style="color:var(--muted);font-weight:500">of '+fmt(e.budget)+'</span></b></div>'+
+      '<div class="bar"><span style="width:'+pct+'%"></span></div>'+
+      '<div style="margin-top:12px;font-size:12px;color:var(--muted)">'+top.map(t=>esc(t[0])+": <b style='color:var(--text)'>"+fmt(t[1])+"</b>").join(" &nbsp;\u00B7&nbsp; ")+'</div></div>';
+  }).join("");
+  return '<div class="toolbar"><h2>Events</h2></div><div class="ev-grid">'+cards+'</div>'+
+    '<div class="perm-note">Every bill is tagged to one event. Click an event for the full category break-up and the list of tagged bills.</div>';
+}
+function openEvent(id){ state.screen="eventDetail"; state.selEvent=id; render(); }
+function vEventDetail(){
+  const e=EVENTS.find(x=>x.id===state.selEvent)||EVENTS[0];
+  const bills=eventSpend(e.id).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const spent=bills.reduce((a,i)=>a+i.amount,0), pct=Math.min(100,Math.round(spent/e.budget*100));
+  const cats={}; bills.forEach(i=>cats[i.cat]=(cats[i.cat]||0)+i.amount);
+  const maxC=Math.max.apply(null,[1].concat(Object.values(cats)));
+  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(c=>
+    '<div class="hbar-row"><div>'+esc(c[0])+'</div><div class="bar"><span style="width:'+Math.round(c[1]/maxC*100)+'%"></span></div><div class="amt">'+fmt(c[1])+'</div></div>'
+  ).join("");
+  const rows=bills.map(i=>'<tr class="clickable" onclick="openInvoice(\''+i.id+'\')"><td class="vendor">'+esc(i.vendor)+'</td><td>'+esc(i.no)+'</td><td>'+fmtDate(i.date)+'</td><td style="font-size:12.5px">'+esc(i.cat)+'</td><td class="num" style="font-weight:650">'+fmt(i.amount)+'</td><td>'+chip(i.status)+'</td></tr>').join("");
+  return '<button class="backlink" onclick="nav(\'events\')">'+ICONS.back+' All events</button>'+
+  '<div class="toolbar"><h2>'+esc(e.name)+'</h2><div class="actions"><span style="font-size:12.5px;color:var(--muted)">'+esc(e.dates)+' \u00B7 '+esc(e.loc)+'</span></div></div>'+
+  '<div class="grid-kpi" style="grid-template-columns:repeat(4,1fr)">'+
+    '<div class="card kpi"><div class="lbl">Budget</div><div class="val" style="font-size:23px">'+fmt(e.budget)+'</div></div>'+
+    '<div class="card kpi"><div class="lbl">Spent</div><div class="val" style="font-size:23px">'+fmt(spent)+'</div><div class="sub2">'+pct+'% of budget</div></div>'+
+    '<div class="card kpi"><div class="lbl">Remaining</div><div class="val" style="font-size:23px">'+fmt(e.budget-spent)+'</div></div>'+
+    '<div class="card kpi"><div class="lbl">Bills tagged</div><div class="val">'+bills.length+'</div></div>'+
+  '</div>'+
+  '<div class="grid-2"><div class="card"><h3>Expense break-up by category</h3><p class="hint">Approved and pending bills tagged to this event</p>'+catRows+'</div>'+
+  '<div class="card"><h3>Budget usage</h3><p class="hint">Spent vs sanctioned budget</p><div class="bar" style="height:14px"><span style="width:'+pct+'%"></span></div>'+
+  '<div style="display:flex;justify-content:space-between;font-size:13px;margin-top:10px"><span style="color:var(--muted)">'+pct+'% used</span><b>'+fmt(spent)+' / '+fmt(e.budget)+'</b></div></div></div>'+
+  '<div class="card"><h3>Tagged bills</h3><p class="hint">Click a bill to open it</p><table class="tbl"><thead><tr><th>Vendor</th><th>Invoice no</th><th>Date</th><th>Category</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+/* ============ Reports ============ */
+function vReports(){
+  const pend=state.invoices.filter(i=>PENDING.includes(i.status));
+  const stageRows=[["captured","Captured"],["assigned","Assigned"],["verified","Verified"]].map(s=>{
+    const l=pend.filter(i=>i.status===s[0]);
+    return '<tr><td style="font-weight:600">'+s[1]+'</td><td>'+l.length+'</td><td class="num" style="font-weight:650">'+fmt(l.reduce((a,i)=>a+i.amount,0))+'</td></tr>';
+  }).join("");
+  const del=state.invoices.filter(isDelayed).slice().sort((a,b)=>daysSince(b.date)-daysSince(a.date));
+  const delRows=del.map(i=>'<tr class="clickable" onclick="openInvoice(\''+i.id+'\')"><td style="font-weight:650">'+i.id+'</td><td>'+esc(i.vendor)+'</td><td>'+esc(i.assignedTo)+'</td><td><span class="chip delayed">'+daysSince(i.date)+' days</span></td><td class="num" style="font-weight:650">'+fmt(i.amount)+'</td></tr>').join("");
+  const ok=state.invoices.filter(i=>i.status!=="rejected");
+  const cats={}; ok.forEach(i=>cats[i.cat]=(cats[i.cat]||0)+i.amount);
+  const maxC=Math.max.apply(null,[1].concat(Object.values(cats)));
+  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(c=>
+    '<div class="hbar-row"><div>'+esc(c[0])+'</div><div class="bar"><span style="width:'+Math.round(c[1]/maxC*100)+'%"></span></div><div class="amt">'+fmt(c[1])+'</div></div>'
+  ).join("");
+  const mon={}; ok.forEach(i=>{const k=i.date.slice(0,7); mon[k]=(mon[k]||0)+i.amount;});
+  const mkeys=Object.keys(mon).sort();
+  const maxM=Math.max.apply(null,[1].concat(Object.values(mon)));
+  const mBars=mkeys.map(k=>{
+    const d=new Date(k+"-01T00:00:00"), lbl=MONTHS[d.getMonth()]+" "+d.getFullYear();
+    return '<div class="vbar"><div class="vval">'+fmt(mon[k])+'</div><div class="col" style="height:'+Math.max(4,Math.round(mon[k]/maxM*130))+'px"></div><div class="mlbl">'+lbl+'</div></div>';
+  }).join("");
+  return '<div class="toolbar"><h2>Reports</h2><div class="actions">'+
+    '<button class="btn btn-ghost btn-sm" onclick="exportCSV(\'invoices\')">'+ICONS.dl+' Invoices CSV</button>'+
+    '<button class="btn btn-ghost btn-sm" onclick="exportCSV(\'delayed\')">'+ICONS.dl+' Delayed CSV</button>'+
+    '<button class="btn btn-ghost btn-sm" onclick="exportPDF()">'+ICONS.dl+' Export PDF</button>'+
+  '</div></div>'+
+  '<div class="grid-2">'+
+    '<div class="card"><h3>Pending invoices by stage</h3><p class="hint">Live \u2014 updates as invoices move through the pipeline</p>'+
+      '<table class="tbl"><thead><tr><th>Stage</th><th>Invoices</th><th class="num">Value</th></tr></thead><tbody>'+stageRows+
+      '<tr><td style="font-weight:700">Total pending</td><td style="font-weight:700">'+pend.length+'</td><td class="num" style="font-weight:700">'+fmt(pend.reduce((a,i)=>a+i.amount,0))+'</td></tr></tbody></table></div>'+
+    '<div class="card"><h3>Delayed items</h3><p class="hint">Pending over 7 days, with the owner responsible</p>'+
+      (delRows? '<table class="tbl"><thead><tr><th>Invoice</th><th>Vendor</th><th>Owner</th><th>Delayed</th><th class="num">Amount</th></tr></thead><tbody>'+delRows+'</tbody></table>'
+              : '<div class="empty">No delayed items right now.</div>')+'</div>'+
+  '</div>'+
+  '<div class="grid-2eq">'+
+    '<div class="card"><h3>Spend by category</h3><p class="hint">All non-rejected bills</p>'+catRows+'</div>'+
+    '<div class="card"><h3>Spend by month</h3><p class="hint">All non-rejected bills</p><div class="vbars">'+mBars+'</div></div>'+
+  '</div>';
+}
+function downloadCSV(name, rows){
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const csv=rows.map(r=>r.map(q).join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv"}));
+  a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},400);
+}
+function exportCSV(kind){
+  if(kind==="invoices"){
+    downloadCSV("invoices-2026-09-23.csv",
+      [["ID","Vendor","Invoice No","Date","Amount (INR)","Category","Event","Assigned To","Status","Linked PO"]]
+      .concat(state.invoices.map(i=>[i.id,i.vendor,i.no,i.date,i.amount,i.cat,eventName(i.eventId),i.assignedTo,i.status,i.poId||""])));
+    toast("Invoices CSV downloaded","ok");
+  } else {
+    const del=state.invoices.filter(isDelayed);
+    downloadCSV("delayed-items-2026-09-23.csv",
+      [["ID","Vendor","Invoice No","Date","Amount (INR)","Owner","Days Delayed"]]
+      .concat(del.map(i=>[i.id,i.vendor,i.no,i.date,i.amount,i.assignedTo,daysSince(i.date)])));
+    toast(del.length+" delayed item(s) exported","ok");
+  }
+  logAct("Report exported ("+kind+" CSV)");
+}
+function exportPDF(){ toast("PDF export is disabled in this demo build","warn"); }
+/* ============ Invoice actions (pipeline) ============ */
+function checkPOBilling(invObj){
+  if(!invObj.poId) return;
+  const p=po(invObj.poId); if(!p||p.status!=="approved") return;
+  const m=poMatch(p);
+  if(m.label==="Matched"){
+    p.status="billed"; p.hist.push("Fully billed \u2014 23 Sep 2026");
+    logAct(p.id+" fully billed \u2014 moved to Billed");
+    toast(p.id+" fully billed \u2014 moved to Billed","ok");
+  }
+}
+/* ============ Users — FR-10 onboarding with maker-checker ============ */
+const MANAGER_IDENTITY = "Priya Nair"; /* acting manager persona for this demo */
+function genUsername(name){
+  const parts = name.trim().toLowerCase().split(/\s+/);
+  const base = parts[0]+"."+parts[parts.length-1];
+  const taken = {};
+  state.users.forEach(x=>{ if(x.username) taken[x.username]=1; });
+  let u = base, k = 2;
+  while(taken[u]) u = base + (k++);
+  return u;
+}
+function genPassword(){
+  const cs = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let s = "";
+  for(let i=0;i<10;i++) s += cs[Math.floor(Math.random()*cs.length)];
+  return s;
+}
+function setUserRoleFilter(v){ state.userRoleFilter=v; render(); }
+function vUsers(){
+  const canPropose = state.role==="Manager"||state.role==="Admin";
+  const canApprove = state.role==="Admin";
+  const isMgr = state.role==="Manager";
+  const visible = isMgr ? state.users.filter(u=>u.role!=="Admin") : state.users;
+  const f = (state.userRoleFilter==="admin"&&isMgr) ? "all" : (state.userRoleFilter||"all");
+  const list = f==="all" ? visible : visible.filter(u=>u.role===f);
+  const cnt = r => visible.filter(u=>u.role===r).length;
+  const rolesel = '<select class="rolesel" onchange="setUserRoleFilter(this.value)" title="Filter users by role">'+
+    '<option value="all"'+(f==="all"?" selected":"")+'>All roles ('+visible.length+')</option>'+
+    (isMgr?["Manager","Finance","Viewer"]:["Admin","Manager","Finance","Viewer"]).map(r=>'<option value="'+r+'"'+(f===r?" selected":"")+'>'+r+'s ('+cnt(r)+')</option>').join("")+
+  '</select>';
+  const rows = list.map((u,ix)=>{
+    const rejNote = (u.status==="rejected"&&u.remarks.length)
+      ? '<div style="font-size:12px;color:var(--red-tx);margin-top:4px">Rejected: '+esc(u.remarks[u.remarks.length-1].text)+'</div>' : "";
+    let actions = '<span style="font-size:12px;color:var(--muted-2)">\u2014</span>';
+    if(u.status==="pending"){
+      if(canApprove)
+        actions = '<button class="btn btn-primary btn-sm" onclick="approveUser('+ix+')">Approve</button> '+
+                  '<button class="btn btn-danger btn-sm" onclick="openRejectUserModal('+ix+')">Reject</button>';
+      else
+        actions = '<span style="font-size:12.5px;color:var(--amber-tx);font-weight:650">Awaiting Admin approval</span>';
+    } else if(u.status==="active"){
+      actions = '<span class="chip ok">Credentials issued</span>';
+    }
+    return '<tr>'+
+      '<td><div class="vendor">'+esc(u.name)+'</div>'+(u.email?'<div style="font-size:11.5px;color:var(--muted)">'+esc(u.email)+'</div>':"")+'</td>'+
+      '<td>'+(u.username? '<span style="font-family:monospace;font-weight:650">'+esc(u.username)+'</span>' : '<span style="color:var(--muted-2)">\u2014</span>')+'</td>'+
+      '<td>'+esc(u.role)+'</td>'+
+      '<td style="font-size:12.5px">'+esc(u.loc||"—")+'</td>'+
+      '<td><span class="chip '+u.status+'">'+u.status.charAt(0).toUpperCase()+u.status.slice(1)+'</span>'+rejNote+'</td>'+
+      '<td style="font-size:12.5px">'+esc(isMgr?u.createdBy.replace(/system administrator/i,"Admin"):u.createdBy)+'</td><td>'+actions+'</td></tr>';
+  }).join("");
+  return ''+
+  '<div class="toolbar"><h2>Users</h2><div class="actions">'+
+    rolesel+
+    (canPropose ? '<button class="btn btn-primary" onclick="openUserModal()">'+ICONS.plus+' Create New User</button>' : '')+
+  '</div></div>'+
+  '<div class="card"><table class="tbl"><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Location</th><th>Status</th><th>Created by</th><th>Actions</th></tr></thead>'+
+  '<tbody>'+rows+'</tbody></table>'+
+  '<div class="perm-note">Maker\u2013checker: a Manager can propose a new user \u2014 no self-registration. The Admin approves the request and generates the username &amp; password; the Admin can also create a user directly (activated immediately). Rejected requests return with remarks.</div></div>';
+}
+function openUserModal(){
+  const isAdmin = state.role==="Admin";
+  const mRoleOpts = isAdmin ? ["Manager","Finance","Viewer","Admin"] : ["Manager","Finance","Viewer"];
+  openModal(
+    '<div class="modal-head"><h3>Create New User</h3><button class="iconbtn" onclick="closeModal()">'+ICONS.x+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="field"><label>Full Name</label><input id="u-name" placeholder="e.g. Rohit Gupta"></div>'+
+      '<div class="field"><label>Email</label><input id="u-email" type="email" placeholder="name@company.com"></div>'+
+      '<div class="field"><label>Role</label><select id="u-role">'+mRoleOpts.map(r=>'<option>'+r+'</option>').join('')+'</select></div>'+
+      '<div class="field"><label>Location</label><input id="u-loc" placeholder="e.g. Mumbai"></div>'+
+      '<div class="perm-note">'+(isAdmin?"As Admin, the user is activated immediately with auto-generated credentials.":"This submits a request to the Admin for approval. The username &amp; password are generated by the Admin after approval — not here.")+'</div>'+
+    '</div>'+
+    '<div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn btn-primary" onclick="submitUser()">'+(isAdmin?"Create user":"Submit for approval")+'</button></div>'
+  );
+}
+function submitUser(){
+  const name = document.getElementById("u-name").value.trim();
+  const email = document.getElementById("u-email").value.trim();
+  const role = document.getElementById("u-role").value;
+  const loc = (document.getElementById("u-loc").value||"").trim();
+  if(!name){ toast("Please enter the full name","warn"); return; }
+  if(!email || email.indexOf("@")<0){ toast("Please enter a valid email","warn"); return; }
+  if(state.role==="Admin"){
+    let username = email.split("@")[0].toLowerCase().replace(/[^a-z0-9.]/g,"")||"user";
+    let n = 2;
+    while(state.users.some(u=>u.username===username)) username = username.replace(/\d+$/,"")+n++;
+    const password = "Pass"+Math.floor(1000+Math.random()*9000)+"!";
+    state.users.push({name:name, email:email, username:username, password:password, role:role, status:"active",
+      createdBy:"System Administrator", loc:loc, remarks:[],
+      hist:["Created directly by Admin \u2014 23 Sep 2026","Credentials issued by Admin \u2014 23 Sep 2026"]});
+    logAct("Admin created user "+name+" ("+role+")");
+    closeModal(); render();
+    toast("User created & activated. Username: "+username+" · Password: "+password,"ok");
+  } else {
+    state.users.push({name:name, email:email, username:null, password:null, role:role, status:"pending",
+      createdBy:MANAGER_IDENTITY+" (Manager)", loc:loc, remarks:[],
+      hist:["Requested by "+MANAGER_IDENTITY+" \u2014 23 Sep 2026"]});
+    logAct("New user requested: "+name+" ("+role+")");
+    closeModal(); render();
+    toast("Request sent to Admin for approval","ok");
+  }
+}
+function approveUser(ix){
+  const u = state.users[ix]; if(!u || u.status!=="pending") return;
+  const username = genUsername(u.name), password = genPassword();
+  u.username = username; u.password = password; u.status = "active";
+  u.hist.push("Approved by Admin \u2014 credentials generated \u2014 23 Sep 2026");
+  logAct("User approved: "+u.name+" ("+u.role+") \u2014 credentials issued");
+  render();
+  openModal(
+    '<div class="modal-head"><h3>Credentials generated</h3><button class="iconbtn" onclick="closeModal()">'+ICONS.x+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p style="font-size:13.5px;color:var(--muted);margin-top:0">'+esc(u.name)+' is now <b>Active</b>. Share these credentials with the user \u2014 users cannot self-register.</p>'+
+      '<div class="field"><label>Username</label><input readonly value="'+esc(username)+'" onclick="this.select()" style="font-family:monospace;font-weight:700"></div>'+
+      '<div class="field"><label>Password</label><input readonly value="'+esc(password)+'" onclick="this.select()" style="font-family:monospace;font-weight:700"></div>'+
+      '<div class="perm-note">Copy and share securely. The password is shown only once \u2014 on this screen.</div>'+
+    '</div>'+
+    '<div class="modal-foot"><button class="btn btn-primary" onclick="closeModal()">Done</button></div>'
+  );
+  toast("Credentials issued for "+u.name,"ok");
+}
+function openRejectUserModal(ix){
+  openModal(
+    '<div class="modal-head"><h3>Reject user request</h3><button class="iconbtn" onclick="closeModal()">'+ICONS.x+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p style="font-size:13.5px;color:var(--muted);margin-top:0">Rejecting the request for <b>'+esc(state.users[ix].name)+'</b>. A remark is required \u2014 it will be visible against the request.</p>'+
+      '<div class="field"><label>Remark (required)</label><textarea class="rmk" id="u-rej-rmk" placeholder="Reason for rejection\u2026"></textarea></div>'+
+    '</div>'+
+    '<div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button>'+
+    '<button class="btn btn-danger" onclick="rejectUser('+ix+')">Reject request</button></div>'
+  );
+}
+function rejectUser(ix){
+  const u = state.users[ix]; if(!u || u.status!=="pending") return;
+  const r = ((document.getElementById("u-rej-rmk")||{}).value||"").trim();
+  if(!r){ toast("Please add a remark explaining the rejection","warn"); return; }
+  u.status = "rejected";
+  u.remarks.push({by:"Admin", text:r, when:"23 Sep 2026"});
+  u.hist.push("Rejected by Admin \u2014 23 Sep 2026");
+  logAct("User request rejected: "+u.name+" ("+u.role+")");
+  closeModal(); toast("Request rejected \u2014 remarks recorded","warn"); render();
+}
+/* ============ Init ============ */
+state.pos.forEach(p=>{ p.remarks=p.remarks||[]; p.hist=p.hist||[]; });
+render();
+</script>
+</body>
+</html>
