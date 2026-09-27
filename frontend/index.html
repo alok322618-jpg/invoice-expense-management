@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice &amp; Expense Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ LOGIN VIEW (first screen, FR-11) ============ -->
+  <div id="login-view" class="login-wrap">
+    <div class="login-card">
+      <h1>Invoice &amp; Expense Management</h1>
+      <p class="muted">Sign in to continue</p>
+      <div id="login-error" class="alert alert-error hidden"></div>
+      <form id="login-form" autocomplete="off">
+        <div class="field">
+          <label for="login-username">Username</label>
+          <input id="login-username" name="username" type="text" required autofocus>
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign in</button>
+      </form>
+      <!-- No self-registration link: accounts are created by Admin/Manager only -->
+    </div>
+  </div>
+
+  <!-- ============ APP VIEW ============ -->
+  <div id="app-view" class="hidden">
+    <header class="topbar">
+      <div class="brand">Invoice &amp; Expense Management</div>
+      <div class="userbox">
+        <span id="user-info" class="user-info"></span>
+        <button id="logout-btn" class="btn btn-ghost btn-small">Logout</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="sidebar" id="sidebar">
+        <button class="nav-item active" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" data-view="invoices">Invoices</button>
+        <button class="nav-item" data-view="pos">Purchase Orders</button>
+        <button class="nav-item" data-view="events">Events</button>
+        <button class="nav-item hidden" data-view="users" id="nav-users">Users</button>
+      </nav>
+
+      <main class="content">
+        <!-- Dashboard -->
+        <section id="view-dashboard" class="view">
+          <h2>Dashboard</h2>
+          <div class="cards" id="dash-cards"></div>
+        </section>
+
+        <!-- Invoices -->
+        <section id="view-invoices" class="view hidden">
+          <div class="view-head">
+            <h2>Invoices</h2>
+            <button id="new-invoice-btn" class="btn btn-primary hidden">New invoice</button>
+          </div>
+          <div class="toolbar">
+            <select id="invoice-status-filter" class="input">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="verified">Verified</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <input id="invoice-search" class="input" type="search" placeholder="Search vendor or invoice no...">
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="invoices-table">
+              <thead>
+                <tr><th>No</th><th>Vendor</th><th>Amount</th><th>Due date</th><th>Status</th><th>Assignee</th></tr>
+              </thead>
+              <tbody id="invoices-tbody"><tr><td colspan="6" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Purchase orders -->
+        <section id="view-pos" class="view hidden">
+          <div class="view-head">
+            <h2>Purchase Orders</h2>
+            <button id="new-po-btn" class="btn btn-primary hidden">New PO</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="pos-table">
+              <thead>
+                <tr><th>PO No</th><th>Vendor</th><th>Amount</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="pos-tbody"><tr><td colspan="6" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Events -->
+        <section id="view-events" class="view hidden">
+          <div class="view-head">
+            <h2>Events</h2>
+            <button id="new-event-btn" class="btn btn-primary hidden">New event</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="events-table">
+              <thead>
+                <tr><th>Name</th><th>Date</th><th>Location</th><th>Budget</th><th>Status</th></tr>
+              </thead>
+              <tbody id="events-tbody"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Users -->
+        <section id="view-users" class="view hidden">
+          <div class="view-head">
+            <h2>Users</h2>
+            <button id="new-user-btn" class="btn btn-primary">New user</button>
+          </div>
+          <div class="toolbar">
+            <select id="user-role-filter" class="input">
+              <option value="">All roles</option>
+              <option value="admin" id="role-filter-admin">Admins</option>
+              <option value="manager">Managers</option>
+              <option value="finance">Finance</option>
+              <option value="viewer">Viewers</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="users-table">
+              <thead>
+                <tr><th>Name</th><th>Username</th><th>Role</th><th>Location</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="users-tbody"><tr><td colspan="6" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ INVOICE DETAIL DRAWER ============ -->
+  <div id="drawer-overlay" class="overlay hidden"></div>
+  <aside id="drawer" class="drawer hidden" aria-label="Invoice details">
+    <div class="drawer-head">
+      <h3 id="drawer-title">Invoice</h3>
+      <button id="drawer-close" class="btn btn-ghost btn-small" aria-label="Close">&times;</button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </aside>
+
+  <!-- ============ GENERIC MODAL ============ -->
+  <div id="modal-overlay" class="overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h3 id="modal-title"></h3>
+        <button id="modal-close" class="btn btn-ghost btn-small" aria-label="Close">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ TOASTS ============ -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
