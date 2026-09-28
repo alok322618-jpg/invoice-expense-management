@@ -1,4 +1,3 @@
-"""Database engine + session. SQLite by default, PostgreSQL via DATABASE_URL."""
 import os
 
 from sqlalchemy import create_engine
