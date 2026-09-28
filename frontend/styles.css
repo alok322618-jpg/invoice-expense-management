@@ -1,4 +1,4 @@
-/* Invoice & Expense Management — professional minimal business theme */
+
 
 :root {
   --bg: #f3f5f9;
@@ -34,7 +34,6 @@ body {
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
 
-/* ---------- Login ---------- */
 .login-wrap {
   min-height: 100vh;
   display: flex;
@@ -54,7 +53,6 @@ body {
 .login-card h1 { margin: 0 0 4px; font-size: 22px; }
 .login-card .muted { margin: 0 0 20px; }
 
-/* ---------- Buttons & inputs ---------- */
 .btn {
   border: 1px solid transparent;
   border-radius: 8px;
@@ -99,7 +97,6 @@ body {
 .alert-error { background: var(--red-bg); color: var(--red); border: 1px solid #f5c2c2; }
 .alert-info { background: var(--blue-bg); color: var(--blue); border: 1px solid #bcd3f7; }
 
-/* ---------- App shell ---------- */
 .topbar {
   height: 60px;
   background: var(--card);
@@ -150,7 +147,6 @@ body {
 .toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
 .toolbar .input { max-width: 260px; }
 
-/* ---------- Cards ---------- */
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -166,7 +162,6 @@ body {
 .card .card-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
 .card .card-value { font-size: 26px; font-weight: 700; }
 
-/* ---------- Tables ---------- */
 .table-wrap {
   background: var(--card);
   border: 1px solid var(--border);
@@ -195,7 +190,6 @@ body {
 .table .actions-cell { white-space: nowrap; }
 .table .actions-cell .btn { margin-right: 6px; }
 
-/* ---------- Status badges ---------- */
 .badge {
   display: inline-block;
   padding: 3px 10px;
@@ -212,7 +206,6 @@ body {
 .badge.assigned, .badge.verified { background: var(--blue-bg); color: var(--blue); }
 .badge.open { background: var(--amber-bg); color: var(--amber); }
 
-/* ---------- Drawer ---------- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -274,7 +267,6 @@ body {
 .inline-form .input { flex: 1; }
 .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 
-/* ---------- Modal ---------- */
 .modal {
   position: fixed;
   top: 50%;
@@ -301,7 +293,6 @@ body {
 .modal-head h3 { margin: 0; font-size: 17px; }
 .modal-body { padding: 22px 24px; }
 
-/* Credentials box shown to admin after create/approve */
 .creds-box {
   background: #0f1b33;
   color: #e8eefc;
@@ -314,7 +305,6 @@ body {
 .creds-box .cred-row span:first-child { color: #9fb0d8; font-family: inherit; }
 .creds-note { font-size: 13px; color: var(--muted); }
 
-/* ---------- Toasts ---------- */
 .toasts {
   position: fixed;
   bottom: 24px;
@@ -338,7 +328,6 @@ body {
 .toast.error { border-left: 4px solid #ef4444; }
 .toast.info { border-left: 4px solid #3b82f6; }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 760px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 10px; }
