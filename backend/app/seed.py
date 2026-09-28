@@ -1,4 +1,3 @@
-"""Seed demo data on first run: admin user + sample invoices/PO/event."""
 import datetime
 
 from . import auth as authlib
