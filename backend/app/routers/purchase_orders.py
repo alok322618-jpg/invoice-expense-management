@@ -1,4 +1,3 @@
-"""Purchase orders: create -> approve/reject."""
 import datetime
 from typing import List
 
