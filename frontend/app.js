@@ -21,7 +21,7 @@ const fmtDate = (d) => (d || "").slice(0, 10);
 
 const badge = (status) => {
   const s = String(status || "unknown").toLowerCase();
-  const cls = ["approved", "active", "pending", "rejected", "locked",
+  const cls = ["approved", "active", "pending", "pending_approval", "rejected", "locked",
                "assigned", "verified", "open"].includes(s) ? s : "";
   return `<span class="badge ${cls}">${esc(status || "unknown")}</span>`;
 };
@@ -399,7 +399,7 @@ async function loadPOs() {
   const rows = r.data;
   if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="muted">No purchase orders found.</td></tr>`; return; }
   tbody.innerHTML = rows.map((po) => {
-    const pending = String(po.status || "").toLowerCase() === "pending";
+    const pending = String(po.status || "").toLowerCase() === "pending_approval";
     const actions = (pending && canManagePO())
       ? `<button class="btn btn-success btn-small" data-po-approve="${po.id}">Approve</button>
          <button class="btn btn-danger btn-small" data-po-reject="${po.id}">Reject</button>`
