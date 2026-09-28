@@ -1,16 +1,14 @@
-/* Invoice & Expense Management — frontend app (plain JS, no build step) */
+
 
 const API_BASE = "http://localhost:8000/api";
 
-/* ---------------- state ---------------- */
 const state = {
   token: localStorage.getItem("token") || null,
-  user: null,            // {id, username, name, role, location, status}
+  user: null,
   view: "dashboard",
-  usersCache: [],        // cached user list for assign dropdowns
+  usersCache: [],
 };
 
-/* ---------------- tiny DOM helpers ---------------- */
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v == null ? "" : v)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;")
