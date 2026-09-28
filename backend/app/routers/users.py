@@ -1,4 +1,3 @@
-"""User management: Admin creates directly, Manager requests -> Admin approves."""
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -48,7 +47,7 @@ def create_user(
     username = authlib.make_username(body.name, db)
     user = models.User(
         username=username,
-        password_hash="",  # set below
+        password_hash="",
         name=body.name,
         role=body.role,
         location=body.location,
