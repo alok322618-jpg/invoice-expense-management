@@ -207,7 +207,7 @@ body {
   color: var(--gray);
 }
 .badge.approved, .badge.active { background: var(--green-bg); color: var(--green); }
-.badge.pending { background: var(--amber-bg); color: var(--amber); }
+.badge.pending, .badge.pending_approval { background: var(--amber-bg); color: var(--amber); }
 .badge.rejected, .badge.locked { background: var(--red-bg); color: var(--red); }
 .badge.assigned, .badge.verified { background: var(--blue-bg); color: var(--blue); }
 .badge.open { background: var(--amber-bg); color: var(--amber); }
