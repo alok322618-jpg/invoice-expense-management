@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-"""Generate client-facing SRS PDF for Invoice & Expense Management System."""
 from fpdf import FPDF
 
 BLUE = (25, 65, 120)
@@ -72,7 +70,6 @@ class SRS(FPDF):
             self.set_font("DejaVu", "B", 10)
             self.set_text_color(*DARK)
             max_h = 8
-            # compute row height
             col_texts = []
             for w, txt in zip(widths, row):
                 self.set_font("DejaVu", "", 10)
@@ -97,7 +94,6 @@ pdf.set_auto_page_break(True, 20)
 pdf.add_font("DejaVu", "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 
-# ---------------- COVER ----------------
 pdf.add_page()
 pdf.ln(28)
 pdf.set_font("DejaVu", "B", 26)
@@ -138,7 +134,6 @@ pdf.multi_cell(0, 6,
     "and add anything missed in Section 10 before sign-off.",
     align="C")
 
-# ---------------- 1. INTRODUCTION ----------------
 pdf.add_page()
 pdf.section("1", "Introduction")
 pdf.body(
@@ -148,7 +143,6 @@ pdf.body(
     "until the client reviews, corrects, and confirms it."
 )
 
-# ---------------- 2. PROJECT OVERVIEW ----------------
 pdf.section("2", "Project Overview")
 pdf.body(
     "The client receives vendor invoices over email and manages event / training related "
@@ -159,7 +153,6 @@ pdf.body(
     "event-wise, and provides clear reports on pending and delayed items."
 )
 
-# ---------------- 3. OBJECTIVES ----------------
 pdf.section("3", "Objectives")
 for t in [
     "Automatically capture vendor invoices received over email into one system.",
@@ -171,7 +164,6 @@ for t in [
 ]:
     pdf.bullet(t)
 
-# ---------------- 4. SCOPE ----------------
 pdf.section("4", "Scope")
 pdf.set_font("DejaVu", "B", 11)
 pdf.set_text_color(*DARK)
@@ -194,7 +186,6 @@ for t in [
 ]:
     pdf.bullet(t)
 
-# ---------------- 5. FUNCTIONAL REQUIREMENTS ----------------
 pdf.section("5", "Functional Requirements")
 fr = [
     ("ID", "Requirement", "Description"),
@@ -243,7 +234,6 @@ fr = [
 ]
 pdf.req_table(fr, [18, 42, 110])
 
-# ---------------- 6. WORKFLOWS ----------------
 pdf.section("6", "Key Workflows")
 pdf.set_font("DejaVu", "B", 11)
 pdf.cell(0, 8, "Workflow A -- Invoice approval", new_x="LMARGIN", new_y="NEXT")
@@ -262,7 +252,6 @@ pdf.cell(0, 8, "Workflow D -- Login & access", new_x="LMARGIN", new_y="NEXT")
 pdf.body("Login page (first page)  ->  Username + password  ->  Role identified  ->  "
          "Role-based dashboard (Admin / Manager / Finance / Viewer)")
 
-# ---------------- 7. NON-FUNCTIONAL ----------------
 pdf.section("7", "Non-Functional Requirements")
 for code, t in [
     ("NFR-01  Usability: ", "Simple, clean web interface; usable on mobile browsers."),
@@ -276,7 +265,6 @@ for code, t in [
 ]:
     pdf.bullet(t, bold_lead=code)
 
-# ---------------- 8. ASSUMPTIONS ----------------
 pdf.section("8", "Assumptions")
 for t in [
     "Vendor invoices arrive as PDF attachments on one designated email ID. That inbox receives "
@@ -287,7 +275,6 @@ for t in [
 ]:
     pdf.bullet(t)
 
-# ---------------- 9. OPEN QUESTIONS ----------------
 pdf.section("9", "Open Questions for the Client")
 pdf.body("Please write your answers in the right-hand column. These are needed before development starts.")
 qs = [
@@ -307,7 +294,6 @@ qs = [
 ]
 pdf.req_table(qs, [14, 88, 68])
 
-# ---------------- 10. MISSED REQUIREMENTS ----------------
 pdf.section("10", "Anything Missed? (Client to fill)")
 pdf.body(
     "If any requirement discussed is missing from this document, or you want to add / change "
@@ -323,7 +309,6 @@ for i in range(1, 9):
     pdf.ln(9)
 pdf.set_text_color(*DARK)
 
-# ---------------- 11. SIGN-OFF ----------------
 pdf.section("11", "Confirmation & Sign-off")
 pdf.body(
     "I have reviewed this document. The requirements listed above are complete and correct "
