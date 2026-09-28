@@ -59,6 +59,8 @@ def review_po(
 ):
     if body.decision not in ("approve", "reject"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "decision must be approve or reject")
+    if body.decision == "reject" and not body.remarks.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Rejection needs a reason")
     po = db.query(models.PurchaseOrder).filter_by(id=po_id).first()
     if not po:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "PO not found")
