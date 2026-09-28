@@ -1,11 +1,9 @@
-"""Pydantic request/response schemas."""
 import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
-# ---------- auth ----------
 class LoginIn(BaseModel):
     username: str
     password: str
@@ -29,21 +27,19 @@ class LoginOut(BaseModel):
     user: UserOut
 
 
-# ---------- users ----------
 class UserCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=128)
-    role: str  # admin | manager | finance | viewer
+    role: str
     location: str = ""
 
 
 class UserCreateOut(BaseModel):
     user: UserOut
     username: Optional[str] = None
-    password: Optional[str] = None  # only returned when admin creates directly
+    password: Optional[str] = None
     message: str = ""
 
 
-# ---------- invoices ----------
 class InvoiceCreateIn(BaseModel):
     invoice_no: str
     vendor: str
@@ -75,11 +71,10 @@ class AssignIn(BaseModel):
 
 
 class VerifyIn(BaseModel):
-    decision: str  # approve | reject
+    decision: str
     remarks: str = ""
 
 
-# ---------- purchase orders ----------
 class POCreateIn(BaseModel):
     po_no: str
     vendor: str
@@ -101,11 +96,10 @@ class POOut(BaseModel):
 
 
 class POReviewIn(BaseModel):
-    decision: str  # approve | reject
+    decision: str
     remarks: str = ""
 
 
-# ---------- events ----------
 class EventCreateIn(BaseModel):
     name: str
     date: datetime.date
@@ -126,7 +120,6 @@ class EventOut(BaseModel):
         from_attributes = True
 
 
-# ---------- dashboard ----------
 class DashboardOut(BaseModel):
     pending_invoices: int
     delayed_invoices: int
