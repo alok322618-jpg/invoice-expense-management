@@ -1,4 +1,3 @@
-"""Authentication: password hashing, JWT, lockout, role guard."""
 import datetime
 import os
 import secrets
