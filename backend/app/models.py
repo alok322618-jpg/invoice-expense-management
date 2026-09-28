@@ -1,4 +1,3 @@
-"""SQLAlchemy models."""
 import datetime
 
 from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, JSON
@@ -18,9 +17,9 @@ class User(Base):
     username = Column(String(64), unique=True, index=True, nullable=False)
     password_hash = Column(String(256), nullable=False)
     name = Column(String(128), nullable=False)
-    role = Column(String(16), nullable=False)  # admin | manager | finance | viewer
+    role = Column(String(16), nullable=False)
     location = Column(String(128), default="")
-    status = Column(String(16), default="active")  # active | pending | locked
+    status = Column(String(16), default="active")
     failed_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
     created_by = Column(String(64), default="")
@@ -36,7 +35,6 @@ class Invoice(Base):
     amount = Column(Float, nullable=False)
     invoice_date = Column(Date, nullable=False)
     due_date = Column(Date, nullable=True)
-    # captured -> assigned -> in_verification -> approved | rejected ; rejected -> assigned (send back)
     status = Column(String(24), default="captured", index=True)
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     remarks = Column(Text, default="")
@@ -53,7 +51,7 @@ class PurchaseOrder(Base):
     po_no = Column(String(64), unique=True, index=True, nullable=False)
     vendor = Column(String(128), nullable=False)
     amount = Column(Float, nullable=False)
-    status = Column(String(24), default="pending_approval", index=True)  # pending_approval | approved | rejected
+    status = Column(String(24), default="pending_approval", index=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     remarks = Column(Text, default="")
     history = Column(JSON, default=list)
@@ -68,5 +66,5 @@ class Event(Base):
     date = Column(Date, nullable=False)
     location = Column(String(128), default="")
     budget = Column(Float, default=0.0)
-    status = Column(String(24), default="planned")  # planned | ongoing | completed
+    status = Column(String(24), default="planned")
     created_at = Column(DateTime, default=_now)
