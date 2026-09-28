@@ -1,4 +1,3 @@
-"""Events + dashboard summary."""
 import datetime
 from typing import List
 
