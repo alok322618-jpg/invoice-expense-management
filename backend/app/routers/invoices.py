@@ -1,4 +1,3 @@
-"""Invoice lifecycle: captured -> assigned -> in_verification -> approved | rejected."""
 import datetime
 from typing import List, Optional
 
