@@ -1,4 +1,3 @@
-"""Auth routes: login (with lockout) + current user."""
 import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -23,7 +22,6 @@ def login(body: schemas.LoginIn, db: Session = Depends(get_db)):
                 status.HTTP_423_LOCKED,
                 "Account locked due to too many failed attempts. Try again later or ask Admin to unlock.",
             )
-        # lock expired -> auto unlock
         user.status = "active"
         authlib.reset_login_failures(user, db)
 
