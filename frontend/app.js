@@ -36,6 +36,8 @@ const canManagePO = () => isAdmin() || isManager();           // create + review
 const canManageEvents = () => isAdmin() || isManager();
 const canRecordPayment = () => ["admin", "manager", "finance"].includes(role());
 const canManagePayments = () => isAdmin() || isManager();    // mark paid / cancel
+const canManageVendors = () => ["admin", "manager", "finance"].includes(role());
+const canCodeInvoice = () => ["admin", "manager", "finance"].includes(role());
 
 /* ---------------- toasts ---------------- */
 function toast(msg, type = "info") {
@@ -157,6 +159,7 @@ function applyRoleVisibility() {
   $("new-event-btn").classList.toggle("hidden", !canManageEvents());
   $("bulk-upload-btn").classList.toggle("hidden", !canCreateInvoice());
   $("new-payment-btn").classList.toggle("hidden", !canRecordPayment());
+  $("new-vendor-btn").classList.toggle("hidden", !canManageVendors());
   // Managers must not see the Admins filter option
   $("role-filter-admin").classList.toggle("hidden", !isAdmin());
 }
@@ -177,6 +180,7 @@ function showView(name) {
   if (name === "pos") loadPOs();
   if (name === "events") loadEvents();
   if (name === "payments") loadPayments();
+  if (name === "vendors") loadVendors();
   if (name === "users") loadUsers();
 }
 document.querySelectorAll(".nav-item").forEach((b) =>
@@ -197,6 +201,7 @@ async function loadDashboard() {
     ["Pending amount (Rs)", fmtRs(d.total_pending_amount)],
     ["Paid so far (Rs)", fmtRs(d.total_paid_amount)],
     ["Scheduled payments", d.scheduled_payments],
+    ["Vendors", d.vendors],
     ["Pending user requests", d.pending_users],
     ["Open POs", d.open_pos],
   ];
@@ -245,11 +250,14 @@ $("invoice-search").addEventListener("input", () => {
   clearTimeout(invoiceSearchTimer);
   invoiceSearchTimer = setTimeout(loadInvoices, 350);
 });
-$("new-invoice-btn").addEventListener("click", () => {
+$("new-invoice-btn").addEventListener("click", async () => {
+  const vr = await api("GET", "/vendors?status=active");
+  const vendorNames = vr.ok ? vr.data.map((v) => v.name) : [];
   openModal("New invoice", `
     <form id="invoice-form">
       <div class="field"><label>Invoice no<input class="input" name="invoice_no" required></label></div>
-      <div class="field"><label>Vendor<input class="input" name="vendor" required></label></div>
+      <div class="field"><label>Vendor<input class="input" name="vendor" list="vendor-list" required autocomplete="off" placeholder="Type or pick from vendor master"></label></div>
+      <datalist id="vendor-list">${vendorNames.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
       <div class="field"><label>Amount<input class="input" name="amount" type="number" min="0" step="0.01" required></label></div>
       <div class="field"><label>Invoice date<input class="input" name="invoice_date" type="date" required></label></div>
       <div class="field"><label>Due date<input class="input" name="due_date" type="date" required></label></div>
@@ -286,10 +294,15 @@ async function openInvoiceDrawer(id) {
   $("drawer-body").innerHTML = `<p class="muted">Loading...</p>`;
   const r = await api("GET", `/invoices/${id}`);
   if (!r.ok) { $("drawer-body").innerHTML = `<p class="muted">Could not load invoice.</p>`; toast(apiErr(r), "error"); return; }
-  renderInvoiceDrawer(r.data);
+  let vendorRec = null;
+  if (r.data.vendor_id) {
+    const vr = await api("GET", "/vendors/" + r.data.vendor_id);
+    if (vr.ok) vendorRec = vr.data;
+  }
+  renderInvoiceDrawer(r.data, vendorRec);
 }
 
-function renderInvoiceDrawer(inv) {
+function renderInvoiceDrawer(inv, vendorRec) {
   $("drawer-title").textContent = `Invoice ${inv.invoice_no || ""}`;
   const st = String(inv.status || "").toLowerCase();
   const history = (inv.history || []).map((h) => `
@@ -298,6 +311,14 @@ function renderInvoiceDrawer(inv) {
     </li>`).join("");
 
   let actions = "";
+  // Coding (admin/manager/finance) — mandatory before approval
+  if (canCodeInvoice() && ["captured", "assigned", "in_verification"].includes(st)) {
+    actions += `
+      <div class="drawer-section"><h4>Coding</h4>
+        <div class="field"><label>Account code<input id="code-input" class="input" value="${esc(inv.account_code || "")}" placeholder="e.g. 6100-TRAVEL"></label></div>
+        <button class="btn btn-primary" id="code-btn">${inv.account_code ? "Update coding" : "Save coding"}</button>
+      </div>`;
+  }
   // Assign (admin/manager), hidden once approved
   if (canAssignInvoice() && st !== "approved") {
     actions += `
@@ -312,6 +333,7 @@ function renderInvoiceDrawer(inv) {
   if (canVerifyInvoice() && st !== "approved") {
     actions += `
       <div class="drawer-section"><h4>Verify</h4>
+        ${!inv.account_code ? `<p class="muted" style="margin-bottom:10px">Invoice must be coded before it can be approved.</p>` : ""}
         <div class="field"><label>Remarks (required to reject)</label>
           <textarea id="verify-remarks" class="input" rows="3" placeholder="Reason for rejection..."></textarea></div>
         <div class="btn-row">
@@ -332,6 +354,8 @@ function renderInvoiceDrawer(inv) {
     <dl class="detail-grid">
       <dt>Invoice no</dt><dd>${esc(inv.invoice_no)}</dd>
       <dt>Vendor</dt><dd>${esc(inv.vendor)}</dd>
+      <dt>Vendor bank</dt><dd>${vendorRec && vendorRec.bank_name ? esc(vendorRec.bank_name) + (vendorRec.account_no ? " • " + esc(vendorRec.account_no) : "") + (vendorRec.ifsc ? " (" + esc(vendorRec.ifsc) + ")" : "") : "—"}</dd>
+      <dt>Account code</dt><dd>${inv.account_code ? esc(inv.account_code) + (inv.coded_by_name ? ` <span class="t-meta">by ${esc(inv.coded_by_name)}</span>` : "") : `<span class="badge pending">Not coded</span>`}</dd>
       <dt>Amount</dt><dd>${fmtRs(inv.amount)}</dd>
       <dt>Invoice date</dt><dd>${esc(fmtDate(inv.invoice_date))}</dd>
       <dt>Due date</dt><dd>${esc(fmtDate(inv.due_date))}</dd>
@@ -345,6 +369,17 @@ function renderInvoiceDrawer(inv) {
     ${actions}`;
 
   // Wire actions
+  const codeBtn = $("code-btn");
+  if (codeBtn) {
+    codeBtn.addEventListener("click", async () => {
+      const code = $("code-input").value.trim();
+      if (!code) { toast("Account code is required.", "error"); $("code-input").focus(); return; }
+      const r = await api("PATCH", `/invoices/${inv.id}/code`, { account_code: code });
+      if (!r.ok) { toast(apiErr(r, "Could not save coding."), "error"); return; }
+      toast("Invoice coded.", "success");
+      refreshInvoice(inv.id);
+    });
+  }
   const assignSel = $("assign-select");
   if (assignSel) {
     getUsers().then((users) => {
@@ -673,6 +708,105 @@ $("new-event-btn").addEventListener("click", () => {
     closeModal(); toast("Event created.", "success"); loadEvents();
   });
 });
+
+/* ---------------- vendors ---------------- */
+let vendorSearchTimer = null;
+
+async function loadVendors() {
+  const search = $("vendor-search").value.trim();
+  const q = search ? "?search=" + encodeURIComponent(search) : "";
+  const tbody = $("vendors-tbody");
+  tbody.innerHTML = `<tr><td colspan="7" class="muted">Loading...</td></tr>`;
+  const r = await api("GET", "/vendors" + q);
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load vendors.</td></tr>`;
+    toast(apiErr(r, "Could not load vendors."), "error");
+    return;
+  }
+  const rows = r.data;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">No vendors found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((v) => {
+    const bank = v.bank_name ? `${esc(v.bank_name)}${v.account_no ? " • " + esc(v.account_no) : ""}` : "—";
+    const contact = v.contact_name || v.contact_email || "—";
+    const actions = canManageVendors()
+      ? `<button class="btn btn-ghost btn-small" data-vendor-edit="${v.id}">Edit</button>` : "";
+    return `<tr>
+      <td><strong>${esc(v.name)}</strong></td>
+      <td>${esc(contact)}</td>
+      <td>${esc(v.contact_phone || "—")}</td>
+      <td>${bank}</td>
+      <td>${v.invoice_count}</td>
+      <td><span class="badge ${v.status === "active" ? "approved" : "rejected"}">${esc(v.status)}</span></td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join("");
+  tbody.querySelectorAll("[data-vendor-edit]").forEach((b) =>
+    b.addEventListener("click", () => openVendorModal(Number(b.dataset.vendorEdit))));
+}
+$("vendor-search").addEventListener("input", () => {
+  clearTimeout(vendorSearchTimer);
+  vendorSearchTimer = setTimeout(loadVendors, 350);
+});
+
+function vendorFormHtml(v) {
+  v = v || {};
+  return `
+    <form id="vendor-form">
+      <div class="field"><label>Vendor name<input class="input" name="name" required value="${esc(v.name || "")}" ${v.id ? "disabled" : ""}></label></div>
+      <div class="field"><label>Contact person<input class="input" name="contact_name" value="${esc(v.contact_name || "")}"></label></div>
+      <div class="field"><label>Contact email<input class="input" name="contact_email" type="email" value="${esc(v.contact_email || "")}"></label></div>
+      <div class="field"><label>Contact phone<input class="input" name="contact_phone" value="${esc(v.contact_phone || "")}"></label></div>
+      <div class="field"><label>Bank name<input class="input" name="bank_name" value="${esc(v.bank_name || "")}"></label></div>
+      <div class="field"><label>Account no<input class="input" name="account_no" value="${esc(v.account_no || "")}"></label></div>
+      <div class="field"><label>IFSC<input class="input" name="ifsc" value="${esc(v.ifsc || "")}"></label></div>
+      <div class="field"><label>Address<input class="input" name="address" value="${esc(v.address || "")}"></label></div>
+      ${v.id ? `<div class="field"><label>Status
+        <select class="input" name="status">
+          <option value="active" ${v.status === "active" ? "selected" : ""}>Active</option>
+          <option value="inactive" ${v.status === "inactive" ? "selected" : ""}>Inactive</option>
+        </select></label></div>` : ""}
+      <button class="btn btn-primary btn-block" type="submit">${v.id ? "Save changes" : "Add vendor"}</button>
+    </form>`;
+}
+
+async function openVendorModal(id) {
+  let v = null;
+  if (id) {
+    const r = await api("GET", "/vendors/" + id);
+    if (!r.ok) { toast(apiErr(r, "Could not load vendor."), "error"); return; }
+    v = r.data;
+  }
+  openModal(id ? "Edit vendor" : "New vendor", vendorFormHtml(v));
+  $("vendor-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const payload = {
+      contact_name: f.get("contact_name").trim(),
+      contact_email: f.get("contact_email").trim(),
+      contact_phone: f.get("contact_phone").trim(),
+      bank_name: f.get("bank_name").trim(),
+      account_no: f.get("account_no").trim(),
+      ifsc: f.get("ifsc").trim(),
+      address: f.get("address").trim(),
+    };
+    let r;
+    if (id) {
+      payload.status = f.get("status");
+      r = await api("PATCH", "/vendors/" + id, payload);
+    } else {
+      payload.name = f.get("name").trim();
+      r = await api("POST", "/vendors", payload);
+    }
+    if (!r.ok) { toast(apiErr(r, "Could not save vendor."), "error"); return; }
+    closeModal();
+    toast(id ? "Vendor updated." : "Vendor added.", "success");
+    loadVendors();
+  });
+}
+$("new-vendor-btn").addEventListener("click", () => openVendorModal(null));
 
 /* ---------------- users ---------------- */
 async function loadUsers() {

@@ -57,6 +57,7 @@ def dashboard(
     paid_amount = db.query(func.coalesce(func.sum(models.Payment.amount), 0)).filter(
         models.Payment.status == "paid").scalar() or 0.0
     scheduled = db.query(models.Payment).filter_by(status="scheduled").count()
+    vendors = db.query(models.Vendor).filter_by(status="active").count()
     return {
         "pending_invoices": pending,
         "delayed_invoices": delayed,
@@ -67,4 +68,5 @@ def dashboard(
         "total_pending_amount": round(float(pending_amount), 2),
         "total_paid_amount": round(float(paid_amount), 2),
         "scheduled_payments": scheduled,
+        "vendors": vendors,
     }

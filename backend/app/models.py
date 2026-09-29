@@ -26,22 +26,44 @@ class User(Base):
     created_at = Column(DateTime, default=_now)
 
 
+class Vendor(Base):
+    __tablename__ = "vendors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(128), unique=True, index=True, nullable=False)
+    contact_name = Column(String(128), default="")
+    contact_email = Column(String(128), default="")
+    contact_phone = Column(String(64), default="")
+    bank_name = Column(String(128), default="")
+    account_no = Column(String(64), default="")
+    ifsc = Column(String(32), default="")
+    address = Column(Text, default="")
+    status = Column(String(16), default="active", index=True)
+    created_at = Column(DateTime, default=_now)
+
+
 class Invoice(Base):
     __tablename__ = "invoices"
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_no = Column(String(64), unique=True, index=True, nullable=False)
     vendor = Column(String(128), nullable=False)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
     amount = Column(Float, nullable=False)
     invoice_date = Column(Date, nullable=False)
     due_date = Column(Date, nullable=True)
     status = Column(String(24), default="captured", index=True)
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    account_code = Column(String(64), default="")
+    coded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    coded_at = Column(DateTime, nullable=True)
     remarks = Column(Text, default="")
     history = Column(JSON, default=list)
     created_at = Column(DateTime, default=_now)
 
     assignee = relationship("User", foreign_keys=[assignee_id])
+    vendor_rec = relationship("Vendor", foreign_keys=[vendor_id])
+    coded_by = relationship("User", foreign_keys=[coded_by_id])
 
 
 class PurchaseOrder(Base):

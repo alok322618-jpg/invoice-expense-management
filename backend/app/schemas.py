@@ -43,6 +43,7 @@ class UserCreateOut(BaseModel):
 class InvoiceCreateIn(BaseModel):
     invoice_no: str
     vendor: str
+    vendor_id: Optional[int] = None
     amount: float = Field(gt=0)
     invoice_date: datetime.date
     due_date: Optional[datetime.date] = None
@@ -52,12 +53,16 @@ class InvoiceOut(BaseModel):
     id: int
     invoice_no: str
     vendor: str
+    vendor_id: Optional[int] = None
     amount: float
     invoice_date: datetime.date
     due_date: Optional[datetime.date]
     status: str
     assignee_id: Optional[int]
     assignee_name: Optional[str] = None
+    account_code: str = ""
+    coded_by_name: Optional[str] = None
+    coded_at: Optional[datetime.datetime] = None
     remarks: str = ""
     history: List[dict] = []
     created_at: datetime.datetime
@@ -73,6 +78,51 @@ class AssignIn(BaseModel):
 class VerifyIn(BaseModel):
     decision: str
     remarks: str = ""
+
+
+class CodeIn(BaseModel):
+    account_code: str
+    remarks: str = ""
+
+
+class VendorCreateIn(BaseModel):
+    name: str
+    contact_name: str = ""
+    contact_email: str = ""
+    contact_phone: str = ""
+    bank_name: str = ""
+    account_no: str = ""
+    ifsc: str = ""
+    address: str = ""
+
+
+class VendorUpdateIn(BaseModel):
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_no: Optional[str] = None
+    ifsc: Optional[str] = None
+    address: Optional[str] = None
+    status: Optional[str] = None
+
+
+class VendorOut(BaseModel):
+    id: int
+    name: str
+    contact_name: str = ""
+    contact_email: str = ""
+    contact_phone: str = ""
+    bank_name: str = ""
+    account_no: str = ""
+    ifsc: str = ""
+    address: str = ""
+    status: str
+    invoice_count: int = 0
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
 
 
 class POCreateIn(BaseModel):
@@ -130,6 +180,7 @@ class DashboardOut(BaseModel):
     total_pending_amount: float = 0.0
     total_paid_amount: float = 0.0
     scheduled_payments: int = 0
+    vendors: int = 0
 
 
 class PaymentCreateIn(BaseModel):

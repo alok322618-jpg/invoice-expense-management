@@ -45,3 +45,17 @@ Approved invoices can be paid through the payment chain:
 - `PATCH /api/payments/{id}/mark-paid` (admin/manager) — mark a scheduled payment `paid`
 - `PATCH /api/payments/{id}/cancel` (admin/manager) — cancel a scheduled payment
 - Dashboard also reports `total_pending_amount`, `total_paid_amount` and `scheduled_payments`.
+
+## Vendor master
+
+`GET/POST /api/vendors`, `GET/PATCH /api/vendors/{id}` (create/update: admin/manager/finance).
+Vendors carry contact details and bank details (bank name, account no, IFSC). Invoices link to a
+vendor record: pass `vendor_id`, or just the vendor name and the system links (or auto-creates)
+the master entry. Creating an invoice with a new vendor name auto-creates that vendor.
+
+## Coding stage
+
+Invoices must be coded (account code) before they can be approved:
+
+- `PATCH /api/invoices/{id}/code` (admin/manager/finance) — set/update the account code; logged in invoice history
+- `PATCH /api/invoices/{id}/verify` with `decision=approve` returns 400 if the invoice has no account code

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .. import auth as authlib
 from .. import models, schemas
 from ..database import get_db
+from .vendors import resolve_vendor
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -18,12 +19,16 @@ def _out(inv: models.Invoice) -> dict:
         "id": inv.id,
         "invoice_no": inv.invoice_no,
         "vendor": inv.vendor,
+        "vendor_id": inv.vendor_id,
         "amount": inv.amount,
         "invoice_date": inv.invoice_date,
         "due_date": inv.due_date,
         "status": inv.status,
         "assignee_id": inv.assignee_id,
         "assignee_name": inv.assignee.name if inv.assignee else None,
+        "account_code": inv.account_code or "",
+        "coded_by_name": inv.coded_by.name if inv.coded_by else None,
+        "coded_at": inv.coded_at,
         "remarks": inv.remarks or "",
         "history": inv.history or [],
         "created_at": inv.created_at,
@@ -66,9 +71,11 @@ def create_invoice(
 ):
     if db.query(models.Invoice).filter_by(invoice_no=body.invoice_no).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Invoice number already exists")
+    vendor = resolve_vendor(db, body.vendor_id, body.vendor)
     inv = models.Invoice(
         invoice_no=body.invoice_no,
-        vendor=body.vendor,
+        vendor=vendor.name,
+        vendor_id=vendor.id,
         amount=body.amount,
         invoice_date=body.invoice_date,
         due_date=body.due_date,
@@ -162,9 +169,11 @@ def bulk_upload(
         if reason:
             skipped.append({"row": idx, "invoice_no": inv_no, "reason": reason})
             continue
+        vendor = resolve_vendor(db, None, vendor)
         inv = models.Invoice(
             invoice_no=inv_no,
-            vendor=vendor,
+            vendor=vendor.name,
+            vendor_id=vendor.id,
             amount=amount,
             invoice_date=inv_date,
             due_date=due_date,
@@ -228,9 +237,35 @@ def verify_invoice(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
     if inv.status not in ("assigned", "in_verification", "captured"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Cannot verify invoice in status '{inv.status}'")
+    if body.decision == "approve" and not (inv.account_code or "").strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invoice must be coded before approval")
     inv.status = "approved" if body.decision == "approve" else "rejected"
     inv.remarks = body.remarks
     _log(inv, user.username, inv.status, body.remarks)
+    db.commit()
+    db.refresh(inv)
+    return _out(inv)
+
+
+@router.patch("/{invoice_id}/code", response_model=schemas.InvoiceOut)
+def code_invoice(
+    invoice_id: int,
+    body: schemas.CodeIn,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance")),
+):
+    code = (body.account_code or "").strip()
+    if not code:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Account code is required")
+    inv = db.query(models.Invoice).filter_by(id=invoice_id).first()
+    if not inv:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
+    if inv.status not in ("captured", "assigned", "in_verification"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Cannot code invoice in status '{inv.status}'")
+    inv.account_code = code
+    inv.coded_by_id = user.id
+    inv.coded_at = datetime.datetime.utcnow()
+    _log(inv, user.username, f"coded as {code}", body.remarks)
     db.commit()
     db.refresh(inv)
     return _out(inv)

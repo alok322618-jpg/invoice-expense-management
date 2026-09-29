@@ -46,6 +46,7 @@
         <button class="nav-item" data-view="pos">Purchase Orders</button>
         <button class="nav-item" data-view="events">Events</button>
         <button class="nav-item" data-view="payments">Payments</button>
+        <button class="nav-item" data-view="vendors">Vendors</button>
         <button class="nav-item hidden" data-view="users" id="nav-users">Users</button>
       </nav>
 
@@ -138,6 +139,25 @@
                 <tr><th>Ref</th><th>Invoice</th><th>Vendor</th><th>Amount</th><th>Date</th><th>Method</th><th>Status</th><th>Actions</th></tr>
               </thead>
               <tbody id="payments-tbody"><tr><td colspan="8" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+
+        <section id="view-vendors" class="view hidden">
+          <div class="view-head">
+            <h2>Vendors</h2>
+            <button id="new-vendor-btn" class="btn btn-primary hidden">New vendor</button>
+          </div>
+          <div class="toolbar">
+            <input id="vendor-search" class="input" type="search" placeholder="Search vendors...">
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="vendors-table">
+              <thead>
+                <tr><th>Name</th><th>Contact</th><th>Phone</th><th>Bank</th><th>Invoices</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="vendors-tbody"><tr><td colspan="7" class="muted">Loading...</td></tr></tbody>
             </table>
           </div>
         </section>
