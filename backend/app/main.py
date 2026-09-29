@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from .database import Base, engine
 from .routers import auth as auth_router
@@ -32,3 +34,8 @@ app.include_router(misc.dash_router, prefix="/api")
 @app.get("/api/health")
 def health():
     return {"ok": True}
+
+
+_frontend = Path(__file__).resolve().parent.parent.parent / "frontend"
+if _frontend.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend), html=True), name="frontend")
