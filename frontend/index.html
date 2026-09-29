@@ -45,6 +45,7 @@
         <button class="nav-item" data-view="invoices">Invoices</button>
         <button class="nav-item" data-view="pos">Purchase Orders</button>
         <button class="nav-item" data-view="events">Events</button>
+        <button class="nav-item" data-view="payments">Payments</button>
         <button class="nav-item hidden" data-view="users" id="nav-users">Users</button>
       </nav>
 
@@ -59,7 +60,10 @@
         <section id="view-invoices" class="view hidden">
           <div class="view-head">
             <h2>Invoices</h2>
-            <button id="new-invoice-btn" class="btn btn-primary hidden">New invoice</button>
+            <div class="btn-row">
+              <button id="bulk-upload-btn" class="btn hidden">Bulk upload</button>
+              <button id="new-invoice-btn" class="btn btn-primary hidden">New invoice</button>
+            </div>
           </div>
           <div class="toolbar">
             <select id="invoice-status-filter" class="input">
@@ -110,6 +114,30 @@
                 <tr><th>Name</th><th>Date</th><th>Location</th><th>Budget</th><th>Status</th></tr>
               </thead>
               <tbody id="events-tbody"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+
+        <section id="view-payments" class="view hidden">
+          <div class="view-head">
+            <h2>Payments</h2>
+            <button id="new-payment-btn" class="btn btn-primary hidden">Record payment</button>
+          </div>
+          <div class="toolbar">
+            <select id="payment-status-filter" class="input">
+              <option value="">All statuses</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="paid">Paid</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="payments-table">
+              <thead>
+                <tr><th>Ref</th><th>Invoice</th><th>Vendor</th><th>Amount</th><th>Date</th><th>Method</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="payments-tbody"><tr><td colspan="8" class="muted">Loading...</td></tr></tbody>
             </table>
           </div>
         </section>

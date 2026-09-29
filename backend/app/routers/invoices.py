@@ -1,7 +1,9 @@
+import csv
 import datetime
+import io
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from .. import auth as authlib
@@ -77,6 +79,104 @@ def create_invoice(
     db.commit()
     db.refresh(inv)
     return _out(inv)
+
+
+def _parse_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y"):
+        try:
+            return datetime.datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _read_rows(filename, content):
+    name = (filename or "").lower()
+    if name.endswith(".csv"):
+        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+        rows = []
+        for row in reader:
+            rows.append({
+                (k or "").strip().lower(): (v.strip() if isinstance(v, str) else v)
+                for k, v in row.items() if k
+            })
+        return rows
+    if name.endswith(".xlsx") or name.endswith(".xlsm"):
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        ws = wb.active
+        data = list(ws.iter_rows(values_only=True))
+        if not data:
+            return []
+        headers = [str(h).strip().lower() if h is not None else "" for h in data[0]]
+        rows = []
+        for r in data[1:]:
+            if all(v is None or (isinstance(v, str) and not v.strip()) for v in r):
+                continue
+            rows.append({headers[i]: r[i] for i in range(min(len(headers), len(r)))})
+        return rows
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only .csv and .xlsx files are supported")
+
+
+@router.post("/bulk-upload", response_model=schemas.BulkUploadOut)
+def bulk_upload(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance")),
+):
+    rows = _read_rows(file.filename, file.file.read())
+    existing = {n for (n,) in db.query(models.Invoice.invoice_no).all()}
+    seen = set()
+    added = 0
+    skipped = []
+    for idx, row in enumerate(rows, start=2):
+        inv_no = str(row.get("invoice_no") or "").strip()
+        vendor = str(row.get("vendor") or "").strip()
+        inv_date = _parse_date(row.get("invoice_date"))
+        due_date = _parse_date(row.get("due_date"))
+        amount = 0.0
+        try:
+            amount = float(row.get("amount"))
+        except (TypeError, ValueError):
+            amount = 0.0
+        reason = ""
+        if not inv_no:
+            reason = "missing invoice_no"
+        elif not vendor:
+            reason = "missing vendor"
+        elif inv_no in existing or inv_no in seen:
+            reason = "duplicate invoice_no"
+        elif amount <= 0:
+            reason = "invalid amount"
+        elif not inv_date:
+            reason = "invalid invoice_date"
+        if reason:
+            skipped.append({"row": idx, "invoice_no": inv_no, "reason": reason})
+            continue
+        inv = models.Invoice(
+            invoice_no=inv_no,
+            vendor=vendor,
+            amount=amount,
+            invoice_date=inv_date,
+            due_date=due_date,
+            status="captured",
+        )
+        _log(inv, user.username, "bulk uploaded")
+        db.add(inv)
+        seen.add(inv_no)
+        existing.add(inv_no)
+        added += 1
+    db.commit()
+    return {"added": added, "skipped": skipped, "total": len(rows)}
 
 
 @router.get("/{invoice_id}", response_model=schemas.InvoiceOut)

@@ -52,6 +52,11 @@ def dashboard(
         models.Invoice.status == "approved").scalar() or 0.0
     pending_users = db.query(models.User).filter_by(status="pending").count()
     open_pos = db.query(models.PurchaseOrder).filter_by(status="pending_approval").count()
+    pending_amount = db.query(func.coalesce(func.sum(models.Invoice.amount), 0)).filter(
+        models.Invoice.status.in_(["captured", "assigned", "in_verification"])).scalar() or 0.0
+    paid_amount = db.query(func.coalesce(func.sum(models.Payment.amount), 0)).filter(
+        models.Payment.status == "paid").scalar() or 0.0
+    scheduled = db.query(models.Payment).filter_by(status="scheduled").count()
     return {
         "pending_invoices": pending,
         "delayed_invoices": delayed,
@@ -59,4 +64,7 @@ def dashboard(
         "total_spend": round(float(total_spend), 2),
         "pending_users": pending_users,
         "open_pos": open_pos,
+        "total_pending_amount": round(float(pending_amount), 2),
+        "total_paid_amount": round(float(paid_amount), 2),
+        "scheduled_payments": scheduled,
     }

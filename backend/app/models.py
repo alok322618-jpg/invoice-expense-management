@@ -68,3 +68,20 @@ class Event(Base):
     budget = Column(Float, default=0.0)
     status = Column(String(24), default="planned")
     created_at = Column(DateTime, default=_now)
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    payment_date = Column(Date, nullable=False)
+    method = Column(String(32), default="")
+    reference_no = Column(String(64), default="")
+    status = Column(String(24), default="scheduled", index=True)
+    remarks = Column(Text, default="")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    invoice = relationship("Invoice", foreign_keys=[invoice_id])

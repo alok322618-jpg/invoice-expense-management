@@ -34,6 +34,8 @@ const canVerifyInvoice = () => ["admin", "manager", "finance"].includes(role());
 const canAssignInvoice = () => isAdmin() || isManager();
 const canManagePO = () => isAdmin() || isManager();           // create + review
 const canManageEvents = () => isAdmin() || isManager();
+const canRecordPayment = () => ["admin", "manager", "finance"].includes(role());
+const canManagePayments = () => isAdmin() || isManager();    // mark paid / cancel
 
 /* ---------------- toasts ---------------- */
 function toast(msg, type = "info") {
@@ -153,6 +155,8 @@ function applyRoleVisibility() {
   $("new-invoice-btn").classList.toggle("hidden", !canCreateInvoice());
   $("new-po-btn").classList.toggle("hidden", !canManagePO());
   $("new-event-btn").classList.toggle("hidden", !canManageEvents());
+  $("bulk-upload-btn").classList.toggle("hidden", !canCreateInvoice());
+  $("new-payment-btn").classList.toggle("hidden", !canRecordPayment());
   // Managers must not see the Admins filter option
   $("role-filter-admin").classList.toggle("hidden", !isAdmin());
 }
@@ -172,6 +176,7 @@ function showView(name) {
   if (name === "invoices") loadInvoices();
   if (name === "pos") loadPOs();
   if (name === "events") loadEvents();
+  if (name === "payments") loadPayments();
   if (name === "users") loadUsers();
 }
 document.querySelectorAll(".nav-item").forEach((b) =>
@@ -189,6 +194,9 @@ async function loadDashboard() {
     ["Delayed invoices", d.delayed_invoices],
     ["Approved this month", d.approved_this_month],
     ["Total spend (Rs)", fmtRs(d.total_spend)],
+    ["Pending amount (Rs)", fmtRs(d.total_pending_amount)],
+    ["Paid so far (Rs)", fmtRs(d.total_paid_amount)],
+    ["Scheduled payments", d.scheduled_payments],
     ["Pending user requests", d.pending_users],
     ["Open POs", d.open_pos],
   ];
@@ -455,6 +463,176 @@ $("new-po-btn").addEventListener("click", () => {
     });
     if (!r.ok) { toast(apiErr(r, "Could not create PO."), "error"); return; }
     closeModal(); toast("Purchase order created.", "success"); loadPOs();
+  });
+});
+
+/* ---------------- payments ---------------- */
+async function loadPayments() {
+  const status = $("payment-status-filter").value;
+  const q = status ? "?status=" + encodeURIComponent(status) : "";
+  const tbody = $("payments-tbody");
+  tbody.innerHTML = `<tr><td colspan="8" class="muted">Loading...</td></tr>`;
+  const r = await api("GET", "/payments" + q);
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">Could not load payments.</td></tr>`;
+    toast(apiErr(r, "Could not load payments."), "error");
+    return;
+  }
+  const rows = r.data;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">No payments found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((p) => {
+    let actions = "";
+    if (p.status === "scheduled" && canManagePayments()) {
+      actions = `<button class="btn btn-success btn-small" data-act="paid" data-id="${p.id}">Mark paid</button>
+                 <button class="btn btn-danger btn-small" data-act="cancel" data-id="${p.id}">Cancel</button>`;
+    }
+    return `<tr>
+      <td>${esc(p.reference_no || ("PAY-" + p.id))}</td>
+      <td>${esc(p.invoice_no)}</td>
+      <td>${esc(p.vendor)}</td>
+      <td>${fmtRs(p.amount)}</td>
+      <td>${esc(p.payment_date || "")}</td>
+      <td>${esc(p.method || "")}</td>
+      <td><span class="badge ${esc(p.status)}">${esc(p.status)}</span></td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join("");
+  tbody.querySelectorAll("button[data-act]").forEach((b) =>
+    b.addEventListener("click", () => {
+      const id = b.dataset.id;
+      if (b.dataset.act === "paid") markPaymentPaid(id);
+      else cancelPayment(id);
+    }));
+}
+$("payment-status-filter").addEventListener("change", loadPayments);
+
+async function markPaymentPaid(id) {
+  const r = await api("PATCH", "/payments/" + id + "/mark-paid");
+  if (!r.ok) { toast(apiErr(r, "Could not mark payment as paid."), "error"); return; }
+  toast("Payment marked as paid.", "success");
+  loadPayments();
+}
+
+async function cancelPayment(id) {
+  if (!confirm("Cancel this scheduled payment?")) return;
+  const r = await api("PATCH", "/payments/" + id + "/cancel");
+  if (!r.ok) { toast(apiErr(r, "Could not cancel payment."), "error"); return; }
+  toast("Payment cancelled.", "info");
+  loadPayments();
+}
+
+$("new-payment-btn").addEventListener("click", async () => {
+  const r = await api("GET", "/payments/payable");
+  if (!r.ok) { toast(apiErr(r, "Could not load payable invoices."), "error"); return; }
+  const options = r.data;
+  if (!options.length) { toast("No approved invoices with unpaid balance.", "info"); return; }
+  openModal("Record payment", `
+    <form id="payment-form">
+      <div class="field"><label>Invoice
+        <select class="input" name="invoice_id" id="pay-invoice" required>
+          ${options.map((o) => `<option value="${o.id}">${esc(o.invoice_no)} — ${esc(o.vendor)} (unpaid ${fmtRs(o.remaining)})</option>`).join("")}
+        </select></label></div>
+      <div class="field"><label>Amount (Rs)<input class="input" name="amount" type="number" min="0.01" step="0.01" required></label></div>
+      <div class="field"><label>Payment date<input class="input" name="payment_date" type="date" required></label></div>
+      <div class="field"><label>Method
+        <select class="input" name="method">
+          <option value="bank_transfer">Bank transfer</option>
+          <option value="upi">UPI</option>
+          <option value="cheque">Cheque</option>
+          <option value="cash">Cash</option>
+          <option value="card">Card</option>
+        </select></label></div>
+      <div class="field"><label>Reference no<input class="input" name="reference_no" placeholder="UTR / cheque no"></label></div>
+      <button class="btn btn-primary btn-block" type="submit">Schedule payment</button>
+    </form>`);
+  const payable = {};
+  options.forEach((o) => { payable[o.id] = o; });
+  $("pay-invoice").addEventListener("change", (e) => {
+    const sel = payable[e.target.value];
+    if (sel) document.querySelector('#payment-form [name="amount"]').value = sel.remaining;
+  });
+  document.querySelector('#payment-form [name="amount"]').value = options[0].remaining;
+  $("payment-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const r2 = await api("POST", "/payments", {
+      invoice_id: Number(f.get("invoice_id")),
+      amount: Number(f.get("amount")),
+      payment_date: f.get("payment_date"),
+      method: f.get("method"),
+      reference_no: (f.get("reference_no") || "").trim(),
+    });
+    if (!r2.ok) { toast(apiErr(r2, "Could not record payment."), "error"); return; }
+    closeModal();
+    toast("Payment scheduled.", "success");
+    loadPayments();
+  });
+});
+
+/* ---------------- bulk invoice upload ---------------- */
+function downloadTemplate() {
+  const csv = "invoice_no,vendor,amount,invoice_date,due_date\nINV-1001,Acme Corp,50000,2026-09-20,2026-10-20\nINV-1002,Globex Ltd,25000,2026-09-21,\n";
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "invoice_upload_template.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function apiUpload(path, formData) {
+  const headers = {};
+  if (state.token) headers["Authorization"] = "Bearer " + state.token;
+  let res;
+  try {
+    res = await fetch(API_BASE + path, { method: "POST", headers, body: formData });
+  } catch (e) {
+    return { ok: false, data: { detail: "Network error: could not reach the server." } };
+  }
+  if (res.status === 401) {
+    logout(true);
+    return { ok: false, data: { detail: "Session expired. Please sign in again." } };
+  }
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* non-JSON */ }
+  return { ok: res.ok, status: res.status, data: data || {} };
+}
+
+$("bulk-upload-btn").addEventListener("click", () => {
+  openModal("Bulk upload invoices", `
+    <form id="bulk-form">
+      <p class="muted" style="margin-bottom:12px">Upload a CSV or Excel file with columns:
+        <strong>invoice_no, vendor, amount, invoice_date</strong> (YYYY-MM-DD), due_date (optional).</p>
+      <div class="btn-row" style="margin-bottom:14px">
+        <button type="button" class="btn" id="bulk-template-btn">Download CSV template</button>
+      </div>
+      <div class="field"><label>File<input class="input" type="file" id="bulk-file" accept=".csv,.xlsx,.xlsm" required></label></div>
+      <div id="bulk-result" style="margin-bottom:12px"></div>
+      <button class="btn btn-primary btn-block" type="submit">Upload</button>
+    </form>`);
+  $("bulk-template-btn").addEventListener("click", downloadTemplate);
+  $("bulk-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = $("bulk-file").files[0];
+    if (!file) return;
+    const res = $("bulk-result");
+    res.innerHTML = `<span class="muted">Uploading...</span>`;
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await apiUpload("/invoices/bulk-upload", fd);
+    if (!r.ok) { res.innerHTML = `<span class="badge rejected">${esc(apiErr(r, "Upload failed."))}</span>`; return; }
+    const d = r.data;
+    let html = `<div class="btn-row"><span class="badge approved">Added: ${d.added}</span>
+      <span class="badge ${d.skipped.length ? "rejected" : "approved"}">Skipped: ${d.skipped.length}</span></div>`;
+    if (d.skipped.length) {
+      html += `<ul class="muted" style="margin-top:8px;font-size:13px">` +
+        d.skipped.map((s) => `<li>Row ${s.row} (${esc(s.invoice_no || "-")}): ${esc(s.reason)}</li>`).join("") + `</ul>`;
+    }
+    res.innerHTML = html;
+    if (d.added) { toast(`${d.added} invoices added.`, "success"); loadInvoices(); }
   });
 });
 

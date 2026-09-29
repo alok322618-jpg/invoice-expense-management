@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
 from .routers import auth as auth_router
-from .routers import invoices, misc, purchase_orders, users
+from .routers import invoices, misc, payments, purchase_orders, users
 from .seed import seed
 
 Base.metadata.create_all(bind=engine)
@@ -23,6 +23,7 @@ app.include_router(auth_router.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(purchase_orders.router, prefix="/api")
+app.include_router(payments.router, prefix="/api")
 app.include_router(misc.events_router, prefix="/api")
 app.include_router(misc.dash_router, prefix="/api")
 

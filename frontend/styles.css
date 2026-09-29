@@ -205,6 +205,9 @@ body {
 .badge.rejected, .badge.locked { background: var(--red-bg); color: var(--red); }
 .badge.assigned, .badge.verified { background: var(--blue-bg); color: var(--blue); }
 .badge.open { background: var(--amber-bg); color: var(--amber); }
+.badge.scheduled { background: var(--blue-bg); color: var(--blue); }
+.badge.paid { background: var(--green-bg); color: var(--green); }
+.badge.cancelled { background: var(--red-bg); color: var(--red); }
 
 .overlay {
   position: fixed;

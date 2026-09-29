@@ -127,3 +127,46 @@ class DashboardOut(BaseModel):
     total_spend: float
     pending_users: int
     open_pos: int
+    total_pending_amount: float = 0.0
+    total_paid_amount: float = 0.0
+    scheduled_payments: int = 0
+
+
+class PaymentCreateIn(BaseModel):
+    invoice_id: int
+    amount: float = Field(gt=0)
+    payment_date: datetime.date
+    method: str = ""
+    reference_no: str = ""
+    remarks: str = ""
+
+
+class PaymentOut(BaseModel):
+    id: int
+    invoice_id: int
+    invoice_no: str = ""
+    vendor: str = ""
+    amount: float
+    payment_date: datetime.date
+    method: str = ""
+    reference_no: str = ""
+    status: str
+    remarks: str = ""
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PayableInvoiceOut(BaseModel):
+    id: int
+    invoice_no: str
+    vendor: str
+    amount: float
+    remaining: float
+
+
+class BulkUploadOut(BaseModel):
+    added: int
+    skipped: List[dict] = []
+    total: int = 0
