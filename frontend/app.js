@@ -7,6 +7,7 @@ const state = {
   user: null,
   view: "dashboard",
   usersCache: [],
+  codesCache: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -24,22 +25,29 @@ const badge = (status) => {
   return `<span class="badge ${cls}">${esc(status || "unknown")}</span>`;
 };
 
-/* role helpers */
+
 const role = () => (state.user && state.user.role) || "";
 const isAdmin = () => role() === "admin";
 const isManager = () => role() === "manager";
-const canManageUsers = () => isAdmin() || isManager();       // Users nav + create
-const canCreateInvoice = () => ["admin", "manager", "finance"].includes(role());
+const isEmployee = () => role() === "employee";
+const canManageUsers = () => isAdmin() || isManager();
+const canCreateInvoice = () => ["admin", "manager", "finance", "employee"].includes(role());
 const canVerifyInvoice = () => ["admin", "manager", "finance"].includes(role());
 const canAssignInvoice = () => isAdmin() || isManager();
-const canManagePO = () => isAdmin() || isManager();           // create + review
+const canManagePO = () => isAdmin() || isManager();
 const canManageEvents = () => isAdmin() || isManager();
 const canRecordPayment = () => ["admin", "manager", "finance"].includes(role());
-const canManagePayments = () => isAdmin() || isManager();    // mark paid / cancel
+const canManagePayments = () => isAdmin() || isManager();
 const canManageVendors = () => ["admin", "manager", "finance"].includes(role());
+const canDeleteVendor = () => isAdmin() || isManager();
 const canCodeInvoice = () => ["admin", "manager", "finance"].includes(role());
+const canLinkEvent = () => ["admin", "manager", "finance"].includes(role());
+const canManageCodes = () => isAdmin() || isManager();
+const canViewAnalytics = () => ["admin", "manager", "finance"].includes(role());
+const canAttachInvoice = (inv) => ["admin", "manager", "finance"].includes(role()) ||
+  (isEmployee() && inv && state.user && inv.created_by_id === state.user.id);
 
-/* ---------------- toasts ---------------- */
+
 function toast(msg, type = "info") {
   const el = document.createElement("div");
   el.className = `toast ${type}`;
@@ -48,7 +56,7 @@ function toast(msg, type = "info") {
   setTimeout(() => el.remove(), 4200);
 }
 
-/* ---------------- modal ---------------- */
+
 function openModal(title, bodyHtml) {
   $("modal-title").textContent = title;
   $("modal-body").innerHTML = bodyHtml;
@@ -63,7 +71,7 @@ $("modal-overlay").addEventListener("click", (e) => {
   if (e.target === $("modal-overlay")) closeModal();
 });
 
-/* ---------------- drawer ---------------- */
+
 function openDrawer(title) {
   $("drawer-title").textContent = title;
   $("drawer").classList.remove("hidden");
@@ -76,9 +84,7 @@ function closeDrawer() {
 $("drawer-close").addEventListener("click", closeDrawer);
 $("drawer-overlay").addEventListener("click", closeDrawer);
 
-/* ---------------- API wrapper ----------------
-   Adds the JWT, parses JSON, and on 401 clears the token and
-   returns to the login screen. Never throws for HTTP errors. */
+
 async function api(method, path, body) {
   const headers = { "Content-Type": "application/json" };
   if (state.token) headers["Authorization"] = "Bearer " + state.token;
@@ -93,18 +99,18 @@ async function api(method, path, body) {
     return { ok: false, status: 0, data: { detail: "Network error: could not reach the server." } };
   }
   if (res.status === 401) {
-    logout(true); // silent: session expired / token invalid
+    logout(true); 
     return { ok: false, status: 401, data: { detail: "Session expired. Please sign in again." } };
   }
   let data = null;
-  try { data = await res.json(); } catch (e) { /* non-JSON body */ }
+  try { data = await res.json(); } catch (e) {  }
   return { ok: res.ok, status: res.status, data: data || {} };
 }
 
 const apiErr = (r, fallback) =>
   (r.data && (r.data.detail || r.data.message)) || fallback || "Something went wrong.";
 
-/* ---------------- auth ---------------- */
+
 async function handleLogin(e) {
   e.preventDefault();
   const username = $("login-username").value.trim();
@@ -120,7 +126,7 @@ async function handleLogin(e) {
       state.user = r.data.user;
       enterApp();
     } else {
-      // 401 -> invalid credentials, 423 -> locked account: show server text
+      
       errBox.textContent = apiErr(r, "Sign in failed.");
       errBox.classList.remove("hidden");
     }
@@ -151,42 +157,49 @@ function enterApp() {
   showView("dashboard");
 }
 
-/* Show/hide UI elements based on the signed-in user's role */
+
 function applyRoleVisibility() {
   $("nav-users").classList.toggle("hidden", !canManageUsers());
+  $("nav-codes").classList.toggle("hidden", !canManageCodes());
   $("new-invoice-btn").classList.toggle("hidden", !canCreateInvoice());
   $("new-po-btn").classList.toggle("hidden", !canManagePO());
   $("new-event-btn").classList.toggle("hidden", !canManageEvents());
-  $("bulk-upload-btn").classList.toggle("hidden", !canCreateInvoice());
+  $("bulk-upload-btn").classList.toggle("hidden", !canCreateInvoice() || isEmployee());
   $("new-payment-btn").classList.toggle("hidden", !canRecordPayment());
   $("new-vendor-btn").classList.toggle("hidden", !canManageVendors());
-  // Managers must not see the Admins filter option
+  $("new-code-btn").classList.toggle("hidden", !canManageCodes());
   $("role-filter-admin").classList.toggle("hidden", !isAdmin());
+  const emp = isEmployee();
+  document.querySelectorAll(".nav-item").forEach((b) => {
+    const v = b.dataset.view;
+    if (emp && !["dashboard", "invoices"].includes(v)) b.classList.add("hidden");
+  });
 }
 
 $("login-form").addEventListener("submit", handleLogin);
 $("logout-btn").addEventListener("click", () => logout(false));
 
-/* ---------------- navigation ---------------- */
+
 function showView(name) {
   state.view = name;
   document.querySelectorAll(".nav-item").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   $("view-" + name).classList.remove("hidden");
-  // (re)load data for the view
+  
   if (name === "dashboard") loadDashboard();
-  if (name === "invoices") loadInvoices();
+  if (name === "invoices") { loadEventFilterOptions(); loadInvoices(); }
   if (name === "pos") loadPOs();
   if (name === "events") loadEvents();
   if (name === "payments") loadPayments();
   if (name === "vendors") loadVendors();
+  if (name === "codes") loadCodes();
   if (name === "users") loadUsers();
 }
 document.querySelectorAll(".nav-item").forEach((b) =>
   b.addEventListener("click", () => showView(b.dataset.view)));
 
-/* ---------------- dashboard ---------------- */
+
 async function loadDashboard() {
   const wrap = $("dash-cards");
   wrap.innerHTML = `<div class="card"><div class="card-label">Loading...</div></div>`;
@@ -208,17 +221,83 @@ async function loadDashboard() {
   wrap.innerHTML = cards.map(([label, value]) =>
     `<div class="card"><div class="card-label">${esc(label)}</div><div class="card-value">${esc(value)}</div></div>`
   ).join("");
+  if (canViewAnalytics()) {
+    $("dash-employees-wrap").classList.remove("hidden");
+    $("dash-vendors-wrap").classList.remove("hidden");
+    loadEmployeeStats();
+    loadVendorStats();
+  } else {
+    $("dash-employees-wrap").classList.add("hidden");
+    $("dash-vendors-wrap").classList.add("hidden");
+  }
 }
 
-/* ---------------- invoices ---------------- */
+async function loadEmployeeStats() {
+  const tbody = $("emp-stats-tbody");
+  const r = await api("GET", "/dashboard/employees");
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load employee stats.</td></tr>`;
+    return;
+  }
+  const rows = r.data;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">No employees found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((e) => `
+    <tr><td>${esc(e.name)}</td><td style="text-transform:capitalize">${esc(e.role)}</td>
+    <td>${e.total}</td><td>${e.pending}</td><td>${e.approved}</td><td>${e.rejected}</td>
+    <td>${fmtRs(e.total_amount)}</td></tr>`).join("");
+}
+
+let vendorSort = { by: "paid_amount", order: "desc" };
+
+async function loadVendorStats() {
+  const tbody = $("vendor-stats-tbody");
+  const q = `?sort_by=${encodeURIComponent(vendorSort.by)}&order=${encodeURIComponent(vendorSort.order)}`;
+  const r = await api("GET", "/dashboard/vendors" + q);
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Could not load vendor analytics.</td></tr>`;
+    return;
+  }
+  const rows = r.data;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No vendors found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((v) => `
+    <tr><td><strong>${esc(v.name)}</strong></td><td>${v.invoice_count}</td>
+    <td>${v.approved_count}</td><td>${v.rejected_count}</td>
+    <td>${fmtRs(v.approved_amount)}</td><td>${fmtRs(v.paid_amount)}</td></tr>`).join("");
+  document.querySelectorAll("[data-vsort]").forEach((th) => {
+    const key = th.dataset.vsort;
+    const arrow = key === vendorSort.by ? (vendorSort.order === "desc" ? " ▼" : " ▲") : "";
+    th.innerHTML = th.textContent.replace(/ [▲▼]/g, "") + arrow;
+  });
+}
+
+document.querySelectorAll("[data-vsort]").forEach((th) =>
+  th.addEventListener("click", () => {
+    const key = th.dataset.vsort;
+    if (vendorSort.by === key) {
+      vendorSort.order = vendorSort.order === "desc" ? "asc" : "desc";
+    } else {
+      vendorSort = { by: key, order: "desc" };
+    }
+    loadVendorStats();
+  }));
+
+
 let invoiceSearchTimer = null;
 
 async function loadInvoices() {
   const status = $("invoice-status-filter").value;
   const search = $("invoice-search").value.trim();
+  const eventId = $("invoice-event-filter").value;
   const q = new URLSearchParams();
   if (status) q.set("status", status);
   if (search) q.set("search", search);
+  if (eventId) q.set("event_id", eventId);
   const tbody = $("invoices-tbody");
   tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading...</td></tr>`;
   const r = await api("GET", "/invoices" + (q.toString() ? "?" + q.toString() : ""));
@@ -246,6 +325,15 @@ async function loadInvoices() {
 }
 
 $("invoice-status-filter").addEventListener("change", loadInvoices);
+$("invoice-event-filter").addEventListener("change", loadInvoices);
+async function loadEventFilterOptions() {
+  const sel = $("invoice-event-filter");
+  const keep = sel.value;
+  const r = await api("GET", "/events");
+  sel.innerHTML = `<option value="">All events</option>` +
+    (r.ok ? r.data.map((ev) => `<option value="${ev.id}">${esc(ev.name)}</option>`).join("") : "");
+  sel.value = keep;
+}
 $("invoice-search").addEventListener("input", () => {
   clearTimeout(invoiceSearchTimer);
   invoiceSearchTimer = setTimeout(loadInvoices, 350);
@@ -253,6 +341,8 @@ $("invoice-search").addEventListener("input", () => {
 $("new-invoice-btn").addEventListener("click", async () => {
   const vr = await api("GET", "/vendors?status=active");
   const vendorNames = vr.ok ? vr.data.map((v) => v.name) : [];
+  const er = await api("GET", "/events");
+  const events = er.ok ? er.data : [];
   openModal("New invoice", `
     <form id="invoice-form">
       <div class="field"><label>Invoice no<input class="input" name="invoice_no" required></label></div>
@@ -261,6 +351,10 @@ $("new-invoice-btn").addEventListener("click", async () => {
       <div class="field"><label>Amount<input class="input" name="amount" type="number" min="0" step="0.01" required></label></div>
       <div class="field"><label>Invoice date<input class="input" name="invoice_date" type="date" required></label></div>
       <div class="field"><label>Due date<input class="input" name="due_date" type="date" required></label></div>
+      <div class="field"><label>Event (optional)<select class="input" name="event_id">
+        <option value="">No event</option>
+        ${events.map((ev) => `<option value="${ev.id}">${esc(ev.name)}</option>`).join("")}
+      </select></label></div>
       <button class="btn btn-primary btn-block" type="submit">Create invoice</button>
     </form>`);
   $("invoice-form").addEventListener("submit", async (e) => {
@@ -272,6 +366,7 @@ $("new-invoice-btn").addEventListener("click", async () => {
       amount: Number(f.get("amount")),
       invoice_date: f.get("invoice_date"),
       due_date: f.get("due_date"),
+      event_id: f.get("event_id") ? Number(f.get("event_id")) : null,
     });
     if (!r.ok) { toast(apiErr(r, "Could not create invoice."), "error"); return; }
     closeModal();
@@ -280,7 +375,7 @@ $("new-invoice-btn").addEventListener("click", async () => {
   });
 });
 
-/* Fetch users once and cache for the assign dropdown */
+
 async function getUsers() {
   if (state.usersCache.length) return state.usersCache;
   const r = await api("GET", "/users");
@@ -288,7 +383,29 @@ async function getUsers() {
   return state.usersCache;
 }
 
-/* Invoice detail drawer with history + role-based actions */
+async function getAccountCodes() {
+  if (state.codesCache) return state.codesCache;
+  const r = await api("GET", "/account-codes?status=active");
+  state.codesCache = r.ok ? r.data : [];
+  return state.codesCache;
+}
+
+async function openAttachment(id) {
+  const headers = {};
+  if (state.token) headers["Authorization"] = "Bearer " + state.token;
+  try {
+    const res = await fetch(API_BASE + `/invoices/${id}/attachment`, { headers });
+    if (!res.ok) { toast("Could not open attachment.", "error"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    toast("Could not open attachment.", "error");
+  }
+}
+
+
 async function openInvoiceDrawer(id) {
   openDrawer("Invoice");
   $("drawer-body").innerHTML = `<p class="muted">Loading...</p>`;
@@ -299,10 +416,12 @@ async function openInvoiceDrawer(id) {
     const vr = await api("GET", "/vendors/" + r.data.vendor_id);
     if (vr.ok) vendorRec = vr.data;
   }
-  renderInvoiceDrawer(r.data, vendorRec);
+  const codes = canCodeInvoice() ? await getAccountCodes() : [];
+  renderInvoiceDrawer(r.data, vendorRec, codes);
 }
 
-function renderInvoiceDrawer(inv, vendorRec) {
+function renderInvoiceDrawer(inv, vendorRec, codes) {
+  codes = codes || [];
   $("drawer-title").textContent = `Invoice ${inv.invoice_no || ""}`;
   const st = String(inv.status || "").toLowerCase();
   const history = (inv.history || []).map((h) => `
@@ -311,15 +430,46 @@ function renderInvoiceDrawer(inv, vendorRec) {
     </li>`).join("");
 
   let actions = "";
-  // Coding (admin/manager/finance) — mandatory before approval
+  
   if (canCodeInvoice() && ["captured", "assigned", "in_verification"].includes(st)) {
+    const codeOpts = codes.map((c) =>
+      `<option value="${esc(c.code)}" ${c.code === inv.account_code ? "selected" : ""}>${esc(c.code)} — ${esc(c.name)}</option>`).join("");
+    const legacyOpt = inv.account_code && !codes.some((c) => c.code === inv.account_code)
+      ? `<option value="${esc(inv.account_code)}" selected>${esc(inv.account_code)} (old code)</option>` : "";
     actions += `
       <div class="drawer-section"><h4>Coding</h4>
-        <div class="field"><label>Account code<input id="code-input" class="input" value="${esc(inv.account_code || "")}" placeholder="e.g. 6100-TRAVEL"></label></div>
+        <div class="field"><label>Account code
+          <select id="code-input" class="input">
+            <option value="">Select code...</option>${codeOpts}${legacyOpt}
+          </select></label></div>
         <button class="btn btn-primary" id="code-btn">${inv.account_code ? "Update coding" : "Save coding"}</button>
       </div>`;
   }
-  // Assign (admin/manager), hidden once approved
+  
+  if (inv.attachment || canAttachInvoice(inv)) {
+    actions += `
+      <div class="drawer-section"><h4>Invoice photo</h4>
+        ${inv.attachment
+          ? `<div class="btn-row"><button class="btn btn-ghost" id="view-attach-btn">View attachment</button></div>`
+          : `<p class="muted">No invoice photo attached yet.</p>`}
+        ${canAttachInvoice(inv) ? `
+          <div class="inline-form" style="margin-top:8px">
+            <input type="file" id="attach-file" class="input" accept=".png,.jpg,.jpeg,.pdf,.webp">
+            <button class="btn btn-primary" id="attach-btn">Upload</button>
+          </div>` : ""}
+      </div>`;
+  }
+  
+  if (canLinkEvent()) {
+    actions += `
+      <div class="drawer-section"><h4>Event</h4>
+        <div class="inline-form">
+          <select id="event-select" class="input"><option value="">No event</option></select>
+          <button class="btn btn-primary" id="event-link-btn">Save</button>
+        </div>
+      </div>`;
+  }
+
   if (canAssignInvoice() && st !== "approved") {
     actions += `
       <div class="drawer-section"><h4>Assign</h4>
@@ -329,7 +479,7 @@ function renderInvoiceDrawer(inv, vendorRec) {
         </div>
       </div>`;
   }
-  // Verify (admin/manager/finance)
+  
   if (canVerifyInvoice() && st !== "approved") {
     actions += `
       <div class="drawer-section"><h4>Verify</h4>
@@ -342,7 +492,7 @@ function renderInvoiceDrawer(inv, vendorRec) {
         </div>
       </div>`;
   }
-  // Send back for correction (admin/manager, only when rejected)
+  
   if (canAssignInvoice() && st === "rejected") {
     actions += `
       <div class="drawer-section"><h4>Correction</h4>
@@ -361,6 +511,8 @@ function renderInvoiceDrawer(inv, vendorRec) {
       <dt>Due date</dt><dd>${esc(fmtDate(inv.due_date))}</dd>
       <dt>Status</dt><dd>${badge(inv.status)}</dd>
       <dt>Assignee</dt><dd>${esc(inv.assignee_name || "-")}</dd>
+      <dt>Event</dt><dd>${esc(inv.event_name || "—")}</dd>
+      <dt>Uploaded by</dt><dd>${esc(inv.created_by_name || "-")}</dd>
       <dt>Remarks</dt><dd>${esc(inv.remarks || "-")}</dd>
     </dl>
     <div class="drawer-section"><h4>History</h4>
@@ -368,15 +520,30 @@ function renderInvoiceDrawer(inv, vendorRec) {
     </div>
     ${actions}`;
 
-  // Wire actions
+  
   const codeBtn = $("code-btn");
   if (codeBtn) {
     codeBtn.addEventListener("click", async () => {
-      const code = $("code-input").value.trim();
-      if (!code) { toast("Account code is required.", "error"); $("code-input").focus(); return; }
+      const code = $("code-input").value;
+      if (!code) { toast("Please select an account code.", "error"); $("code-input").focus(); return; }
       const r = await api("PATCH", `/invoices/${inv.id}/code`, { account_code: code });
       if (!r.ok) { toast(apiErr(r, "Could not save coding."), "error"); return; }
       toast("Invoice coded.", "success");
+      refreshInvoice(inv.id);
+    });
+  }
+  const viewAttachBtn = $("view-attach-btn");
+  if (viewAttachBtn) viewAttachBtn.addEventListener("click", () => openAttachment(inv.id));
+  const attachBtn = $("attach-btn");
+  if (attachBtn) {
+    attachBtn.addEventListener("click", async () => {
+      const file = $("attach-file").files[0];
+      if (!file) { toast("Please choose a file first.", "error"); return; }
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await apiUpload(`/invoices/${inv.id}/attachment`, fd);
+      if (!r.ok) { toast(apiErr(r, "Could not upload attachment."), "error"); return; }
+      toast("Attachment uploaded.", "success");
       refreshInvoice(inv.id);
     });
   }
@@ -391,6 +558,21 @@ function renderInvoiceDrawer(inv, vendorRec) {
       const r = await api("PATCH", `/invoices/${inv.id}/assign`, { assignee_id: Number(assignSel.value) });
       if (!r.ok) { toast(apiErr(r, "Could not assign invoice."), "error"); return; }
       toast("Invoice assigned.", "success");
+      refreshInvoice(inv.id);
+    });
+  }
+  const eventSel = $("event-select");
+  if (eventSel) {
+    api("GET", "/events").then((er) => {
+      if (er.ok) {
+        eventSel.innerHTML = `<option value="">No event</option>` + er.data.map((ev) =>
+          `<option value="${ev.id}" ${String(ev.id) === String(inv.event_id) ? "selected" : ""}>${esc(ev.name)}</option>`).join("");
+      }
+    });
+    $("event-link-btn").addEventListener("click", async () => {
+      const r = await api("PATCH", `/invoices/${inv.id}/event`, { event_id: eventSel.value ? Number(eventSel.value) : null });
+      if (!r.ok) { toast(apiErr(r, "Could not save event."), "error"); return; }
+      toast("Event updated.", "success");
       refreshInvoice(inv.id);
     });
   }
@@ -423,11 +605,18 @@ async function verifyInvoice(id, decision, remarks = "") {
 
 async function refreshInvoice(id) {
   const r = await api("GET", `/invoices/${id}`);
-  if (r.ok) renderInvoiceDrawer(r.data);
-  loadInvoices(); // keep the list in sync
+  if (!r.ok) return;
+  let vendorRec = null;
+  if (r.data.vendor_id) {
+    const vr = await api("GET", "/vendors/" + r.data.vendor_id);
+    if (vr.ok) vendorRec = vr.data;
+  }
+  const codes = canCodeInvoice() ? await getAccountCodes() : [];
+  renderInvoiceDrawer(r.data, vendorRec, codes);
+  loadInvoices();
 }
 
-/* ---------------- purchase orders ---------------- */
+
 async function loadPOs() {
   const tbody = $("pos-tbody");
   tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading...</td></tr>`;
@@ -465,7 +654,7 @@ function reviewPO(id, decision, remarks = "") {
   })();
 }
 
-/* Rejecting a PO requires a reason: collect it in a modal */
+
 function askPORejectReason(id) {
   openModal("Reject purchase order", `
     <form id="po-reject-form">
@@ -501,7 +690,7 @@ $("new-po-btn").addEventListener("click", () => {
   });
 });
 
-/* ---------------- payments ---------------- */
+
 async function loadPayments() {
   const status = $("payment-status-filter").value;
   const q = status ? "?status=" + encodeURIComponent(status) : "";
@@ -570,6 +759,7 @@ $("new-payment-btn").addEventListener("click", async () => {
         <select class="input" name="invoice_id" id="pay-invoice" required>
           ${options.map((o) => `<option value="${o.id}">${esc(o.invoice_no)} — ${esc(o.vendor)} (unpaid ${fmtRs(o.remaining)})</option>`).join("")}
         </select></label></div>
+      <div id="pay-bank-info" class="muted" style="margin-bottom:12px;font-size:13px"></div>
       <div class="field"><label>Amount (Rs)<input class="input" name="amount" type="number" min="0.01" step="0.01" required></label></div>
       <div class="field"><label>Payment date<input class="input" name="payment_date" type="date" required></label></div>
       <div class="field"><label>Method
@@ -585,11 +775,23 @@ $("new-payment-btn").addEventListener("click", async () => {
     </form>`);
   const payable = {};
   options.forEach((o) => { payable[o.id] = o; });
+  const showBank = (id) => {
+    const sel = payable[id];
+    const parts = [];
+    if (sel) {
+      if (sel.bank_name) parts.push(sel.bank_name);
+      if (sel.account_no) parts.push("A/c " + sel.account_no);
+      if (sel.ifsc) parts.push("IFSC " + sel.ifsc);
+    }
+    $("pay-bank-info").textContent = parts.length ? "Pay to: " + parts.join(" • ") : "No bank details on file for this vendor.";
+  };
   $("pay-invoice").addEventListener("change", (e) => {
     const sel = payable[e.target.value];
     if (sel) document.querySelector('#payment-form [name="amount"]').value = sel.remaining;
+    showBank(e.target.value);
   });
   document.querySelector('#payment-form [name="amount"]').value = options[0].remaining;
+  showBank(options[0].id);
   $("payment-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -607,7 +809,7 @@ $("new-payment-btn").addEventListener("click", async () => {
   });
 });
 
-/* ---------------- bulk invoice upload ---------------- */
+
 function downloadTemplate() {
   const csv = "invoice_no,vendor,amount,invoice_date,due_date\nINV-1001,Acme Corp,50000,2026-09-20,2026-10-20\nINV-1002,Globex Ltd,25000,2026-09-21,\n";
   const blob = new Blob([csv], { type: "text/csv" });
@@ -632,7 +834,7 @@ async function apiUpload(path, formData) {
     return { ok: false, data: { detail: "Session expired. Please sign in again." } };
   }
   let data = null;
-  try { data = await res.json(); } catch (e) { /* non-JSON */ }
+  try { data = await res.json(); } catch (e) {  }
   return { ok: res.ok, status: res.status, data: data || {} };
 }
 
@@ -671,45 +873,100 @@ $("bulk-upload-btn").addEventListener("click", () => {
   });
 });
 
-/* ---------------- events ---------------- */
+
 async function loadEvents() {
   const tbody = $("events-tbody");
-  tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="muted">Loading...</td></tr>`;
   const r = await api("GET", "/events");
   if (!r.ok) {
-    tbody.innerHTML = `<tr><td colspan="5" class="muted">Could not load events.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">Could not load events.</td></tr>`;
     toast(apiErr(r, "Could not load events."), "error");
     return;
   }
   const rows = r.data;
-  if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="muted">No events found.</td></tr>`; return; }
-  tbody.innerHTML = rows.map((ev) => `
-    <tr><td>${esc(ev.name)}</td><td>${esc(fmtDate(ev.date))}</td><td>${esc(ev.location || "-")}</td>
-    <td>${fmtRs(ev.budget)}</td><td>${badge(ev.status)}</td></tr>`).join("");
+  if (!rows.length) { tbody.innerHTML = `<tr><td colspan="8" class="muted">No events found.</td></tr>`; return; }
+  tbody.innerHTML = rows.map((ev) => {
+    const vendorBtn = canManageEvents()
+      ? `<button class="btn btn-ghost btn-small" data-event-vendor="${ev.id}">${ev.vendor_name ? "Change vendor" : "Set vendor"}</button>`
+      : "";
+    return `<tr><td>${esc(ev.name)}</td><td>${esc(fmtDate(ev.date))}</td><td>${esc(ev.location || "-")}</td>
+    <td>${fmtRs(ev.budget)}</td><td>${esc(ev.vendor_name || "—")}</td>
+    <td><button class="btn btn-ghost btn-small" data-event-bills="${ev.id}">${ev.invoice_count || 0} bills</button></td>
+    <td>${badge(ev.status)}</td>
+    <td>${vendorBtn || `<span class="muted">-</span>`}</td></tr>`;
+  }).join("");
+  tbody.querySelectorAll("[data-event-vendor]").forEach((b) =>
+    b.addEventListener("click", () => openEventVendorModal(Number(b.dataset.eventVendor))));
+  tbody.querySelectorAll("[data-event-bills]").forEach((b) =>
+    b.addEventListener("click", () => showEventBills(Number(b.dataset.eventBills))));
 }
 
-$("new-event-btn").addEventListener("click", () => {
+function showEventBills(eventId) {
+  showView("invoices");
+  const sel = $("invoice-event-filter");
+  if ([...sel.options].some((o) => o.value == String(eventId))) {
+    sel.value = String(eventId);
+    loadInvoices();
+  } else {
+    loadEventFilterOptions().then(() => { sel.value = String(eventId); loadInvoices(); });
+  }
+}
+
+async function openEventVendorModal(eventId) {
+  const vr = await api("GET", "/vendors?status=active");
+  const vendors = vr.ok ? vr.data : [];
+  openModal("Partner vendor for event", `
+    <form id="event-vendor-form">
+      <div class="field"><label>Partner vendor
+        <select class="input" name="vendor_id">
+          <option value="">No vendor</option>
+          ${vendors.map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}
+        </select></label></div>
+      <button class="btn btn-primary btn-block" type="submit">Save</button>
+    </form>`);
+  $("event-vendor-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const val = f.get("vendor_id");
+    const r = await api("PATCH", "/events/" + eventId, { vendor_id: val ? Number(val) : null });
+    if (!r.ok) { toast(apiErr(r, "Could not set vendor."), "error"); return; }
+    closeModal();
+    toast("Partner vendor updated.", "success");
+    loadEvents();
+  });
+}
+
+$("new-event-btn").addEventListener("click", async () => {
+  const vr = await api("GET", "/vendors?status=active");
+  const vendors = vr.ok ? vr.data : [];
   openModal("New event", `
     <form id="event-form">
       <div class="field"><label>Name<input class="input" name="name" required></label></div>
       <div class="field"><label>Date<input class="input" name="date" type="date" required></label></div>
       <div class="field"><label>Location<input class="input" name="location" required></label></div>
       <div class="field"><label>Budget<input class="input" name="budget" type="number" min="0" step="0.01" required></label></div>
+      <div class="field"><label>Partner vendor
+        <select class="input" name="vendor_id">
+          <option value="">No vendor</option>
+          ${vendors.map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}
+        </select></label></div>
       <button class="btn btn-primary btn-block" type="submit">Create event</button>
     </form>`);
   $("event-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
+    const val = f.get("vendor_id");
     const r = await api("POST", "/events", {
       name: f.get("name").trim(), date: f.get("date"),
       location: f.get("location").trim(), budget: Number(f.get("budget")),
+      vendor_id: val ? Number(val) : null,
     });
     if (!r.ok) { toast(apiErr(r, "Could not create event."), "error"); return; }
     closeModal(); toast("Event created.", "success"); loadEvents();
   });
 });
 
-/* ---------------- vendors ---------------- */
+
 let vendorSearchTimer = null;
 
 async function loadVendors() {
@@ -731,8 +988,12 @@ async function loadVendors() {
   tbody.innerHTML = rows.map((v) => {
     const bank = v.bank_name ? `${esc(v.bank_name)}${v.account_no ? " • " + esc(v.account_no) : ""}` : "—";
     const contact = v.contact_name || v.contact_email || "—";
-    const actions = canManageVendors()
-      ? `<button class="btn btn-ghost btn-small" data-vendor-edit="${v.id}">Edit</button>` : "";
+    let actions = "";
+    if (canManageVendors())
+      actions += `<button class="btn btn-ghost btn-small" data-vendor-edit="${v.id}">Edit</button>`;
+    if (canDeleteVendor())
+      actions += ` <button class="btn btn-danger btn-small" data-vendor-delete="${v.id}">Delete</button>`;
+    if (!actions) actions = `<span class="muted">-</span>`;
     return `<tr>
       <td><strong>${esc(v.name)}</strong></td>
       <td>${esc(contact)}</td>
@@ -745,6 +1006,16 @@ async function loadVendors() {
   }).join("");
   tbody.querySelectorAll("[data-vendor-edit]").forEach((b) =>
     b.addEventListener("click", () => openVendorModal(Number(b.dataset.vendorEdit))));
+  tbody.querySelectorAll("[data-vendor-delete]").forEach((b) =>
+    b.addEventListener("click", () => deleteVendor(Number(b.dataset.vendorDelete))));
+}
+
+async function deleteVendor(id) {
+  if (!confirm("Delete this vendor? This cannot be undone.")) return;
+  const r = await api("DELETE", "/vendors/" + id);
+  if (!r.ok) { toast(apiErr(r, "Could not delete vendor."), "error"); return; }
+  toast("Vendor deleted.", "success");
+  loadVendors();
 }
 $("vendor-search").addEventListener("input", () => {
   clearTimeout(vendorSearchTimer);
@@ -808,7 +1079,65 @@ async function openVendorModal(id) {
 }
 $("new-vendor-btn").addEventListener("click", () => openVendorModal(null));
 
-/* ---------------- users ---------------- */
+
+async function loadCodes() {
+  const tbody = $("codes-tbody");
+  tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading...</td></tr>`;
+  const r = await api("GET", "/account-codes");
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Could not load account codes.</td></tr>`;
+    toast(apiErr(r, "Could not load account codes."), "error");
+    return;
+  }
+  const rows = r.data;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">No account codes found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((c) => {
+    const active = c.status === "active";
+    const toggle = canManageCodes()
+      ? `<button class="btn btn-ghost btn-small" data-code-toggle="${c.id}" data-to="${active ? "inactive" : "active"}">${active ? "Deactivate" : "Activate"}</button>`
+      : `<span class="muted">-</span>`;
+    return `<tr>
+      <td><strong>${esc(c.code)}</strong></td><td>${esc(c.name)}</td>
+      <td><span class="badge ${active ? "approved" : "rejected"}">${esc(c.status)}</span></td>
+      <td>${toggle}</td></tr>`;
+  }).join("");
+  tbody.querySelectorAll("[data-code-toggle]").forEach((b) =>
+    b.addEventListener("click", () => toggleCode(Number(b.dataset.codeToggle), b.dataset.to)));
+}
+
+async function toggleCode(id, to) {
+  const r = await api("PATCH", "/account-codes/" + id, { status: to });
+  if (!r.ok) { toast(apiErr(r, "Could not update code."), "error"); return; }
+  state.codesCache = null;
+  toast("Account code updated.", "success");
+  loadCodes();
+}
+
+$("new-code-btn").addEventListener("click", () => {
+  openModal("New account code", `
+    <form id="code-form">
+      <div class="field"><label>Code<input class="input" name="code" required placeholder="e.g. 6100"></label></div>
+      <div class="field"><label>Name<input class="input" name="name" required placeholder="e.g. Travel"></label></div>
+      <button class="btn btn-primary btn-block" type="submit">Add code</button>
+    </form>`);
+  $("code-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const r = await api("POST", "/account-codes", {
+      code: f.get("code").trim(), name: f.get("name").trim(),
+    });
+    if (!r.ok) { toast(apiErr(r, "Could not add code."), "error"); return; }
+    state.codesCache = null;
+    closeModal();
+    toast("Account code added.", "success");
+    loadCodes();
+  });
+});
+
+
 async function loadUsers() {
   const roleFilter = $("user-role-filter").value;
   const q = roleFilter ? "?role=" + encodeURIComponent(roleFilter) : "";
@@ -845,11 +1174,11 @@ async function loadUsers() {
 
 $("user-role-filter").addEventListener("change", loadUsers);
 
-/* Role options for the create form depend on who is creating */
+
 function roleOptionsForCreator() {
   const opts = isAdmin()
-    ? ["admin", "manager", "finance", "viewer"]
-    : ["manager", "finance", "viewer"]; // manager cannot create admins
+    ? ["admin", "manager", "finance", "employee", "viewer"]
+    : ["manager", "finance", "employee", "viewer"];
   return opts.map((r) => `<option value="${r}">${r[0].toUpperCase() + r.slice(1)}</option>`).join("");
 }
 
@@ -877,8 +1206,7 @@ $("new-user-btn").addEventListener("click", () => {
   });
 });
 
-/* Shared handler for create/approve responses: show credentials prominently
-   when the server generated them (admin flow), otherwise show the message. */
+
 function handleUserCredentialsResponse(data, fallbackMsg) {
   if (data && data.username && data.password) {
     openModal("Login credentials", `
@@ -909,13 +1237,13 @@ async function unlockUser(id) {
   loadUsers();
 }
 
-/* ---------------- init ---------------- */
+
 (async function init() {
-  if (!state.token) return; // no token: stay on login screen
+  if (!state.token) return; 
   const r = await api("GET", "/auth/me");
   if (r.ok && r.data) {
     state.user = r.data;
     enterApp();
   }
-  // on 401, api() already cleared the token and we stay on login
+  
 })();

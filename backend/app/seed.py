@@ -8,6 +8,16 @@ from .database import SessionLocal
 def seed():
     db = SessionLocal()
     try:
+        if not db.query(models.AccountCode).first():
+            codes = [
+                ("6100", "Travel"),
+                ("6200", "Food"),
+                ("6300", "Hotel Stay"),
+                ("6400", "Local Transport"),
+                ("6900", "Miscellaneous"),
+            ]
+            db.add_all([models.AccountCode(code=c, name=n) for c, n in codes])
+            db.commit()
         if db.query(models.User).first():
             return
         admin = models.User(

@@ -47,6 +47,7 @@ class InvoiceCreateIn(BaseModel):
     amount: float = Field(gt=0)
     invoice_date: datetime.date
     due_date: Optional[datetime.date] = None
+    event_id: Optional[int] = None
 
 
 class InvoiceOut(BaseModel):
@@ -63,6 +64,11 @@ class InvoiceOut(BaseModel):
     account_code: str = ""
     coded_by_name: Optional[str] = None
     coded_at: Optional[datetime.datetime] = None
+    created_by_id: Optional[int] = None
+    created_by_name: Optional[str] = None
+    attachment: str = ""
+    event_id: Optional[int] = None
+    event_name: Optional[str] = None
     remarks: str = ""
     history: List[dict] = []
     created_at: datetime.datetime
@@ -73,6 +79,10 @@ class InvoiceOut(BaseModel):
 
 class AssignIn(BaseModel):
     assignee_id: int
+
+
+class EventLinkIn(BaseModel):
+    event_id: Optional[int] = None
 
 
 class VerifyIn(BaseModel):
@@ -155,6 +165,16 @@ class EventCreateIn(BaseModel):
     date: datetime.date
     location: str = ""
     budget: float = 0.0
+    vendor_id: Optional[int] = None
+
+
+class EventUpdateIn(BaseModel):
+    name: Optional[str] = None
+    date: Optional[datetime.date] = None
+    location: Optional[str] = None
+    budget: Optional[float] = None
+    status: Optional[str] = None
+    vendor_id: Optional[int] = None
 
 
 class EventOut(BaseModel):
@@ -164,10 +184,55 @@ class EventOut(BaseModel):
     location: str = ""
     budget: float
     status: str
+    vendor_id: Optional[int] = None
+    vendor_name: Optional[str] = None
+    invoice_count: int = 0
     created_at: datetime.datetime
 
     class Config:
         from_attributes = True
+
+
+class AccountCodeCreateIn(BaseModel):
+    code: str = Field(min_length=1, max_length=16)
+    name: str = Field(min_length=1, max_length=128)
+
+
+class AccountCodeUpdateIn(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+
+
+class AccountCodeOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    status: str
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EmployeeStatOut(BaseModel):
+    user_id: int
+    name: str
+    role: str
+    total: int = 0
+    pending: int = 0
+    approved: int = 0
+    rejected: int = 0
+    total_amount: float = 0.0
+
+
+class VendorStatOut(BaseModel):
+    vendor_id: int
+    name: str
+    invoice_count: int = 0
+    approved_count: int = 0
+    rejected_count: int = 0
+    approved_amount: float = 0.0
+    paid_amount: float = 0.0
 
 
 class DashboardOut(BaseModel):
@@ -197,6 +262,9 @@ class PaymentOut(BaseModel):
     invoice_id: int
     invoice_no: str = ""
     vendor: str = ""
+    bank_name: str = ""
+    account_no: str = ""
+    ifsc: str = ""
     amount: float
     payment_date: datetime.date
     method: str = ""
@@ -213,6 +281,9 @@ class PayableInvoiceOut(BaseModel):
     id: int
     invoice_no: str
     vendor: str
+    bank_name: str = ""
+    account_no: str = ""
+    ifsc: str = ""
     amount: float
     remaining: float
 

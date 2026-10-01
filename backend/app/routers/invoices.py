@@ -1,9 +1,12 @@
 import csv
 import datetime
 import io
+import os
+import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from .. import auth as authlib
@@ -29,6 +32,11 @@ def _out(inv: models.Invoice) -> dict:
         "account_code": inv.account_code or "",
         "coded_by_name": inv.coded_by.name if inv.coded_by else None,
         "coded_at": inv.coded_at,
+        "created_by_id": inv.created_by_id,
+        "created_by_name": inv.created_by.name if inv.created_by else None,
+        "attachment": inv.attachment or "",
+        "event_id": inv.event_id,
+        "event_name": inv.event.name if inv.event else None,
         "remarks": inv.remarks or "",
         "history": inv.history or [],
         "created_at": inv.created_at,
@@ -50,12 +58,17 @@ def _log(inv: models.Invoice, by: str, action: str, remarks: str = ""):
 def list_invoices(
     status: Optional[str] = None,
     search: Optional[str] = None,
+    event_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(authlib.get_current_user),
 ):
     q = db.query(models.Invoice)
+    if user.role == "employee":
+        q = q.filter_by(created_by_id=user.id)
     if status:
         q = q.filter_by(status=status)
+    if event_id is not None:
+        q = q.filter_by(event_id=event_id)
     if search:
         like = f"%{search}%"
         q = q.filter((models.Invoice.invoice_no.like(like)) | (models.Invoice.vendor.like(like)))
@@ -67,11 +80,16 @@ def list_invoices(
 def create_invoice(
     body: schemas.InvoiceCreateIn,
     db: Session = Depends(get_db),
-    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance")),
+    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance", "employee")),
 ):
     if db.query(models.Invoice).filter_by(invoice_no=body.invoice_no).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Invoice number already exists")
     vendor = resolve_vendor(db, body.vendor_id, body.vendor)
+    event = None
+    if body.event_id is not None:
+        event = db.query(models.Event).filter_by(id=body.event_id).first()
+        if not event:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Event not found")
     inv = models.Invoice(
         invoice_no=body.invoice_no,
         vendor=vendor.name,
@@ -80,6 +98,8 @@ def create_invoice(
         invoice_date=body.invoice_date,
         due_date=body.due_date,
         status="captured",
+        created_by_id=user.id,
+        event_id=event.id if event else None,
     )
     _log(inv, user.username, "captured")
     db.add(inv)
@@ -140,7 +160,12 @@ def bulk_upload(
     db: Session = Depends(get_db),
     user: models.User = Depends(authlib.require_roles("admin", "manager", "finance")),
 ):
-    rows = _read_rows(file.filename, file.file.read())
+    content = file.file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "File too large (max 5 MB)")
+    rows = _read_rows(file.filename, content)
+    if len(rows) > 1000:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Too many rows (max 1000 per upload)")
     existing = {n for (n,) in db.query(models.Invoice.invoice_no).all()}
     seen = set()
     added = 0
@@ -178,12 +203,15 @@ def bulk_upload(
             invoice_date=inv_date,
             due_date=due_date,
             status="captured",
+            created_by_id=user.id,
         )
         _log(inv, user.username, "bulk uploaded")
         db.add(inv)
         seen.add(inv_no)
         existing.add(inv_no)
         added += 1
+        if added % 200 == 0:
+            db.commit()
     db.commit()
     return {"added": added, "skipped": skipped, "total": len(rows)}
 
@@ -197,6 +225,8 @@ def get_invoice(
     inv = db.query(models.Invoice).filter_by(id=invoice_id).first()
     if not inv:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
+    if user.role == "employee" and inv.created_by_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not allowed for your role")
     return _out(inv)
 
 
@@ -262,10 +292,40 @@ def code_invoice(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
     if inv.status not in ("captured", "assigned", "in_verification"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Cannot code invoice in status '{inv.status}'")
-    inv.account_code = code
+    ac = db.query(models.AccountCode).filter(
+        models.AccountCode.code.ilike(code),
+        models.AccountCode.status == "active",
+    ).first()
+    if not ac:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown or inactive account code")
+    inv.account_code = ac.code
     inv.coded_by_id = user.id
     inv.coded_at = datetime.datetime.utcnow()
-    _log(inv, user.username, f"coded as {code}", body.remarks)
+    _log(inv, user.username, f"coded as {ac.code}", body.remarks)
+    db.commit()
+    db.refresh(inv)
+    return _out(inv)
+
+
+@router.patch("/{invoice_id}/event", response_model=schemas.InvoiceOut)
+def link_event(
+    invoice_id: int,
+    body: schemas.EventLinkIn,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance")),
+):
+    inv = db.query(models.Invoice).filter_by(id=invoice_id).first()
+    if not inv:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
+    if body.event_id is not None:
+        event = db.query(models.Event).filter_by(id=body.event_id).first()
+        if not event:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Event not found")
+        inv.event_id = event.id
+        _log(inv, user.username, f"linked to event {event.name}")
+    else:
+        inv.event_id = None
+        _log(inv, user.username, "unlinked from event")
     db.commit()
     db.refresh(inv)
     return _out(inv)
@@ -285,3 +345,67 @@ def send_back_invoice(
     db.commit()
     db.refresh(inv)
     return _out(inv)
+
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
+ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".pdf", ".webp"}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _upload_dir():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    return UPLOAD_DIR
+
+
+def _get_for_upload(invoice_id: int, db: Session, user: models.User) -> models.Invoice:
+    inv = db.query(models.Invoice).filter_by(id=invoice_id).first()
+    if not inv:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found")
+    if user.role == "employee" and inv.created_by_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not allowed for your role")
+    return inv
+
+
+@router.post("/{invoice_id}/attachment", response_model=schemas.InvoiceOut)
+def upload_attachment(
+    invoice_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.require_roles("admin", "manager", "finance", "employee")),
+):
+    inv = _get_for_upload(invoice_id, db, user)
+    ext = os.path.splitext((file.filename or "").strip())[1].lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only PNG, JPG, PDF or WEBP files are allowed")
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty file")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "File too large (max 10 MB)")
+    safe = f"{invoice_id}_{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(_upload_dir(), safe), "wb") as f:
+        f.write(content)
+    if inv.attachment:
+        old = os.path.join(_upload_dir(), os.path.basename(inv.attachment))
+        if os.path.isfile(old):
+            os.remove(old)
+    inv.attachment = safe
+    _log(inv, user.username, "attachment uploaded")
+    db.commit()
+    db.refresh(inv)
+    return _out(inv)
+
+
+@router.get("/{invoice_id}/attachment")
+def download_attachment(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.get_current_user),
+):
+    inv = _get_for_upload(invoice_id, db, user)
+    if not inv.attachment:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No attachment for this invoice")
+    path = os.path.join(_upload_dir(), os.path.basename(inv.attachment))
+    if not os.path.isfile(path):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment file missing")
+    return FileResponse(path)

@@ -9,8 +9,8 @@ from ..database import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-CREATABLE_BY_ADMIN = {"admin", "manager", "finance", "viewer"}
-CREATABLE_BY_MANAGER = {"manager", "finance", "viewer"}
+CREATABLE_BY_ADMIN = {"admin", "manager", "finance", "viewer", "employee"}
+CREATABLE_BY_MANAGER = {"manager", "finance", "viewer", "employee"}
 
 
 def _visible(users: List[models.User], viewer: models.User) -> List[models.User]:

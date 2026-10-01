@@ -47,6 +47,7 @@
         <button class="nav-item" data-view="events">Events</button>
         <button class="nav-item" data-view="payments">Payments</button>
         <button class="nav-item" data-view="vendors">Vendors</button>
+        <button class="nav-item hidden" data-view="codes" id="nav-codes">Account Codes</button>
         <button class="nav-item hidden" data-view="users" id="nav-users">Users</button>
       </nav>
 
@@ -55,6 +56,35 @@
         <section id="view-dashboard" class="view">
           <h2>Dashboard</h2>
           <div class="cards" id="dash-cards"></div>
+          <div id="dash-employees-wrap" class="hidden">
+            <h3 style="margin-top:24px">Invoices by employee</h3>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr><th>Employee</th><th>Role</th><th>Total</th><th>Pending</th><th>Approved</th><th>Rejected</th><th>Amount</th></tr>
+                </thead>
+                <tbody id="emp-stats-tbody"><tr><td colspan="7" class="muted">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="dash-vendors-wrap" class="hidden">
+            <h3 style="margin-top:24px">Vendor analytics <span class="muted" style="font-weight:normal;font-size:13px">(click a column to sort)</span></h3>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th data-vsort="name" class="row-clickable">Vendor</th>
+                    <th data-vsort="invoice_count" class="row-clickable">Invoices</th>
+                    <th data-vsort="approved_count" class="row-clickable">Approved</th>
+                    <th data-vsort="rejected_count" class="row-clickable">Rejected</th>
+                    <th data-vsort="approved_amount" class="row-clickable">Approved Rs</th>
+                    <th data-vsort="paid_amount" class="row-clickable">Paid Rs</th>
+                  </tr>
+                </thead>
+                <tbody id="vendor-stats-tbody"><tr><td colspan="6" class="muted">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
 
@@ -76,6 +106,9 @@
               <option value="rejected">Rejected</option>
             </select>
             <input id="invoice-search" class="input" type="search" placeholder="Search vendor or invoice no...">
+            <select id="invoice-event-filter" class="input">
+              <option value="">All events</option>
+            </select>
           </div>
           <div class="table-wrap">
             <table class="table" id="invoices-table">
@@ -112,9 +145,9 @@
           <div class="table-wrap">
             <table class="table" id="events-table">
               <thead>
-                <tr><th>Name</th><th>Date</th><th>Location</th><th>Budget</th><th>Status</th></tr>
+                <tr><th>Name</th><th>Date</th><th>Location</th><th>Budget</th><th>Partner vendor</th><th>Bills</th><th>Status</th><th>Actions</th></tr>
               </thead>
-              <tbody id="events-tbody"><tr><td colspan="5" class="muted">Loading...</td></tr></tbody>
+              <tbody id="events-tbody"><tr><td colspan="8" class="muted">Loading...</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -163,6 +196,22 @@
         </section>
 
 
+        <section id="view-codes" class="view hidden">
+          <div class="view-head">
+            <h2>Account Codes</h2>
+            <button id="new-code-btn" class="btn btn-primary hidden">New code</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="codes-table">
+              <thead>
+                <tr><th>Code</th><th>Name</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="codes-tbody"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+
         <section id="view-users" class="view hidden">
           <div class="view-head">
             <h2>Users</h2>
@@ -174,6 +223,7 @@
               <option value="admin" id="role-filter-admin">Admins</option>
               <option value="manager">Managers</option>
               <option value="finance">Finance</option>
+              <option value="employee">Employees</option>
               <option value="viewer">Viewers</option>
             </select>
           </div>

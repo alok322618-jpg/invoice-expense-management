@@ -118,3 +118,29 @@ def update_vendor(
     db.commit()
     db.refresh(v)
     return _out(v, db)
+
+
+@router.delete("/{vendor_id}")
+def delete_vendor(
+    vendor_id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(authlib.require_roles("admin", "manager")),
+):
+    v = db.query(models.Vendor).filter_by(id=vendor_id).first()
+    if not v:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Vendor not found")
+    linked = db.query(models.Invoice).filter_by(vendor_id=v.id).count()
+    if linked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Vendor has {linked} invoice(s); deactivate it instead of deleting",
+        )
+    ev_linked = db.query(models.Event).filter_by(vendor_id=v.id).count()
+    if ev_linked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Vendor is partner for {ev_linked} event(s); unlink it from the event(s) first",
+        )
+    db.delete(v)
+    db.commit()
+    return {"ok": True}

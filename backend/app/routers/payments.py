@@ -13,11 +13,16 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 
 
 def _out(p: models.Payment) -> dict:
+    inv = p.invoice
+    vrec = inv.vendor_rec if inv else None
     return {
         "id": p.id,
         "invoice_id": p.invoice_id,
-        "invoice_no": p.invoice.invoice_no if p.invoice else "",
-        "vendor": p.invoice.vendor if p.invoice else "",
+        "invoice_no": inv.invoice_no if inv else "",
+        "vendor": inv.vendor if inv else "",
+        "bank_name": vrec.bank_name if vrec and vrec.bank_name else "",
+        "account_no": vrec.account_no if vrec and vrec.account_no else "",
+        "ifsc": vrec.ifsc if vrec and vrec.ifsc else "",
         "amount": p.amount,
         "payment_date": p.payment_date,
         "method": p.method or "",
@@ -60,10 +65,14 @@ def payable_invoices(
     for inv in invoices:
         remaining = round(inv.amount - _allocated(inv.id, db), 2)
         if remaining > 0:
+            vrec = inv.vendor_rec
             result.append({
                 "id": inv.id,
                 "invoice_no": inv.invoice_no,
                 "vendor": inv.vendor,
+                "bank_name": vrec.bank_name if vrec and vrec.bank_name else "",
+                "account_no": vrec.account_no if vrec and vrec.account_no else "",
+                "ifsc": vrec.ifsc if vrec and vrec.ifsc else "",
                 "amount": inv.amount,
                 "remaining": remaining,
             })

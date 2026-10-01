@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import Base, engine
+from .database import Base, engine, migrate
 from .routers import auth as auth_router
-from .routers import invoices, misc, payments, purchase_orders, users, vendors
+from .routers import account_codes, invoices, misc, payments, purchase_orders, users, vendors
 from .seed import seed
 
 Base.metadata.create_all(bind=engine)
+migrate()
 seed()
 
 app = FastAPI(title="Invoice & Expense Management API", version="0.1.0")
@@ -25,6 +26,7 @@ app.include_router(invoices.router, prefix="/api")
 app.include_router(purchase_orders.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(vendors.router, prefix="/api")
+app.include_router(account_codes.router, prefix="/api")
 app.include_router(misc.events_router, prefix="/api")
 app.include_router(misc.dash_router, prefix="/api")
 

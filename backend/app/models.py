@@ -57,6 +57,9 @@ class Invoice(Base):
     account_code = Column(String(64), default="")
     coded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     coded_at = Column(DateTime, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attachment = Column(String(256), default="")
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
     remarks = Column(Text, default="")
     history = Column(JSON, default=list)
     created_at = Column(DateTime, default=_now)
@@ -64,6 +67,8 @@ class Invoice(Base):
     assignee = relationship("User", foreign_keys=[assignee_id])
     vendor_rec = relationship("Vendor", foreign_keys=[vendor_id])
     coded_by = relationship("User", foreign_keys=[coded_by_id])
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    event = relationship("Event", foreign_keys=[event_id])
 
 
 class PurchaseOrder(Base):
@@ -89,6 +94,19 @@ class Event(Base):
     location = Column(String(128), default="")
     budget = Column(Float, default=0.0)
     status = Column(String(24), default="planned")
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    created_at = Column(DateTime, default=_now)
+
+    vendor_rec = relationship("Vendor", foreign_keys=[vendor_id])
+
+
+class AccountCode(Base):
+    __tablename__ = "account_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(16), unique=True, index=True, nullable=False)
+    name = Column(String(128), nullable=False)
+    status = Column(String(16), default="active", index=True)
     created_at = Column(DateTime, default=_now)
 
 
