@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from . import models
 from .database import get_db
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
+SECRET_KEY = (
+    os.environ.get("SECRET_KEY")
+    or os.environ.get("SESSION_SECRET")
+    or "dev-secret-change-in-production"
+)
 ALGORITHM = "HS256"
 TOKEN_HOURS = 12
 MAX_FAILED = 5
